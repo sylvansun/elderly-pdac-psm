@@ -1,0 +1,14 @@
+# MAC OS
+.DS_Store
+
+# python
+__pycache__/
+*.ipynb
+
+# others
+.idea/
+.vscode/
+.venv/
+
+# data
+*.xlsx
