@@ -1,7 +1,8 @@
 import pandas as pd
+
 # 定义贫血判断函数
 def is_anaemia(row):
-    gender = row["病人性别"]
+    gender = row["Gender"]
     hb = row["Hb"]
 
     if pd.isna(hb):
