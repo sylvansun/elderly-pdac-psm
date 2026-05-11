@@ -127,13 +127,6 @@ for sheet in sheets_to_process:
     # 筛选年龄 >= 75
     filtered_df = df[df["病人年龄"] >= 75][target_columns]
 
-    # Hb 转为数值（防止字符串）
-    filtered_df["Hb"] = pd.to_numeric(filtered_df["Hb"], errors="coerce")
-
-    # 生成判断贫血与否的列
-    filtered_df["Anaemia"] = filtered_df.apply(utils.is_anaemia, axis=1)
-
-
     if not filtered_df.empty:
         all_filtered_data.append(filtered_df)
         print(f"✅ 筛选出 {len(filtered_df)} 条记录")
@@ -262,12 +255,6 @@ try:
 
         # 筛选年龄 >= 75 且 手术日期 >= 2015-01-01
         filtered_df_wc = df_wc[(df_wc["病人年龄"] >= 75) & (df_wc["手术日期"] >= "2015-01-01")][target_columns]
-
-        # Hb 转为数值（防止字符串）
-        filtered_df_wc["Hb"] = pd.to_numeric(filtered_df_wc["Hb"], errors="coerce")
-
-        # 生成判断贫血与否的列
-        filtered_df_wc["Anaemia"] = filtered_df_wc.apply(utils.is_anaemia, axis=1)
 
         if not filtered_df_wc.empty:
             # 将日期列重新转换为字符串以便保存，防止 excel 格式问题（可选，但通常 pd.to_excel 处理得很好）
