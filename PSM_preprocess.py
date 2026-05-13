@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
-
+import logging
+import os
+from utils import determine_pT
 
 def convert_to_numeric_with_fill(series, col_name):
     """
@@ -13,12 +15,6 @@ def convert_to_numeric_with_fill(series, col_name):
     except Exception as e:
         print(f"转换 {col_name} 时出错: {e}")
         return series
-
-
-import pandas as pd
-import logging
-import os
-
 
 def process_file(file_name):
     # ========= 创建日志文件 =========
@@ -63,9 +59,14 @@ def process_file(file_name):
     # 去除包含 "/" 的行
     for col in required_cols:
         df = df[~df[col].astype(str).str.contains("/")]
-
-    # 特殊值替换
+ 
+    # 替换异常值
     df["Tumor Size"] = df["Tumor Size"].replace("7、4", "7")
+
+    # 转为数值
+    df["Tumor Size"] = pd.to_numeric(df["Tumor Size"], errors="coerce")
+
+    df["pTNM_T"] = df.apply(determine_pT, axis=1)
 
     # 清理 Surgical procedure 列
     df["Surgical procedure"] = (
@@ -162,7 +163,6 @@ def process_file(file_name):
 
     return df
 
-
 if __name__ == "__main__":
 
     # 需要处理的文件列表
@@ -171,18 +171,32 @@ if __name__ == "__main__":
         "5总_并发症_processed.xlsx",
     ]
 
+    # 输出文件名映射（英文简洁命名）
+    output_names = {
+        "5总_75岁及以上_processed.xlsx": "elderly.xlsx",
+        "5总_并发症_processed.xlsx": "complications.xlsx",
+    }
+
     # 用于存储处理后的DataFrame
     processed_data = {}
 
     # 批量处理
     for file_name in files_to_process:
         try:
+            # 处理文件
             df = process_file(file_name)
 
             # 保存到字典
             processed_data[file_name] = df
 
+            # 输出文件名
+            output_name = output_names[file_name]
+
+            # 保存为新的Excel文件
+            df.to_excel(output_name, index=False)
+
             print(f"\n{file_name} 处理完成")
+            print(f"已保存为: {output_name}")
 
         except Exception as e:
             print(f"\n处理 {file_name} 时发生错误: {e}")
