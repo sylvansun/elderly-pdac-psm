@@ -1,7 +1,14 @@
 import pandas as pd
 import numpy as np
 
-# 定义贫血判断函数
+# SMD函数
+def smd(df, col):
+    t = df[df["treat"] == 1][col]
+    c = df[df["treat"] == 0][col]
+    pooled = np.sqrt((t.var() + c.var()) / 2)
+    return abs((t.mean() - c.mean()) / pooled)
+
+# 贫血判断函数
 def is_anaemia(row):
     gender = row["Gender"]
     hb = row["Hb"]
@@ -16,7 +23,7 @@ def is_anaemia(row):
     else:
         return 0
     
-# 原发肿瘤T分期判断
+# 原发肿瘤T分期判断函数
 def determine_pT(row):
 
     # 血管侵犯相关列

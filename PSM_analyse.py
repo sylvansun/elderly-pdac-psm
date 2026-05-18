@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import random
+import shap
 
 from scipy import stats
 
@@ -18,27 +20,14 @@ from sksurv.util import Surv
 from sksurv.ensemble import RandomSurvivalForest
 from sksurv.metrics import cumulative_dynamic_auc
 
-import shap
+
+from utils import smd
+
 
 def run_psm_batch(file_list, output_dir="PSM_results"):
 
-    # =========================
-    # 创建输出文件夹
-    # =========================
     os.makedirs(output_dir, exist_ok=True)
 
-    # =========================
-    # SMD函数
-    # =========================
-    def smd(df, col):
-        t = df[df["treat"] == 1][col]
-        c = df[df["treat"] == 0][col]
-        pooled = np.sqrt((t.var() + c.var()) / 2)
-        return abs((t.mean() - c.mean()) / pooled)
-
-    # =========================
-    # 批处理每个Excel
-    # =========================
     for file_path in file_list:
 
         dataset_name = os.path.splitext(os.path.basename(file_path))[0]
@@ -46,9 +35,7 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
 
         df = pd.read_excel(file_path)
 
-        # =========================
         # 1 数据准备
-        # =========================
         df_model = df.copy().sort_index()
 
         continuous_vars = ["Age", "BMI", "Tumor Size", "Albumin"]
@@ -62,9 +49,7 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
 
         df_model["treat"] = df_model["Surgical approach"].map({"OPEN": 0, "MIS": 1})
 
-        # =========================
         # 2 PS model
-        # =========================
         X = df_model[continuous_vars + categorical_vars]
         X = pd.get_dummies(X, columns=categorical_vars, drop_first=True)
 
@@ -79,9 +64,7 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
         df_model["ps"] = logit.predict_proba(X_scaled)[:, 1].clip(0.0001, 0.9999)
         df_model["logit_ps"] = np.log(df_model["ps"] / (1 - df_model["ps"]))
 
-        # =========================
         # 3 PS density（保存图）
-        # =========================
         plt.figure()
         sns.kdeplot(df_model[df_model["treat"] == 1]["ps"], label="MIS")
         sns.kdeplot(df_model[df_model["treat"] == 0]["ps"], label="OPEN")
@@ -92,9 +75,7 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
                     dpi=300, bbox_inches="tight")
         plt.close()
 
-        # =========================
         # 4 PSM matching
-        # =========================
         treated = df_model[df_model["treat"] == 1]
         control = df_model[df_model["treat"] == 0]
 
@@ -129,9 +110,7 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
             index=False
         )
 
-        # =========================
         # 5 SMD Love plot
-        # =========================
         X_full = pd.concat([X, df_model["treat"]], axis=1)
         X_matched = pd.concat([X.loc[matched_df.index], matched_df["treat"]], axis=1)
 
@@ -150,9 +129,7 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
                     dpi=300, bbox_inches="tight")
         plt.close()
 
-        # =========================
         # 6 Table1
-        # =========================
         rows = []
 
         for var in continuous_vars:
@@ -178,8 +155,7 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
     print("\nAll datasets processed successfully.")
 
 def set_seed(seed=42):
-    import random
-    import numpy as np
+
     random.seed(seed)
     np.random.seed(seed)
 
