@@ -38,14 +38,13 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
         # 1 数据准备
         df_model = df.copy().sort_index()
 
-        continuous_vars = ["Age", "BMI", "Tumor Size", "Albumin"]
-        categorical_vars = ["AJCC Stage", "ASA Score"]
+        continuous_vars = ["Age", "BMI", "Albumin"]
+        categorical_vars = ["AJCC Stage", "ASA Score", "pTNM_T", "Anaemia", "Surgical procedure"]
 
         for col in continuous_vars:
             df_model[col] = df_model[col].fillna(df_model[col].median())
-
-        df_model["AJCC Stage"] = df_model["AJCC Stage"].fillna("Unknown")
-        df_model["ASA Score"] = df_model["ASA Score"].fillna("Unknown")
+        for col in categorical_vars:
+            df_model[col] = df_model[col].fillna("Unknown")
 
         df_model["treat"] = df_model["Surgical approach"].map({"OPEN": 0, "MIS": 1})
 
@@ -110,23 +109,51 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
             index=False
         )
 
-        # 5 SMD Love plot
+        # 5 SMD Love plot（split: continuous + categorical）
         X_full = pd.concat([X, df_model["treat"]], axis=1)
         X_matched = pd.concat([X.loc[matched_df.index], matched_df["treat"]], axis=1)
 
-        smd_before = [smd(X_full, c) for c in X.columns]
-        smd_after = [smd(X_matched, c) for c in X.columns]
+        # ---- 分类 dummy变量（get_dummies后的列）----
+        cat_cols = [c for c in X.columns if c not in continuous_vars]
+
+        # 5.1 Continuous variables Love plot
+        smd_before_cont = [smd(X_full, c) for c in continuous_vars]
+        smd_after_cont  = [smd(X_matched, c) for c in continuous_vars]
 
         plt.figure()
-        plt.scatter(smd_before, X.columns, label="Before")
-        plt.scatter(smd_after, X.columns, label="After")
+        plt.scatter(smd_before_cont, continuous_vars, label="Before")
+        plt.scatter(smd_after_cont, continuous_vars, label="After")
         plt.axvline(0.1, linestyle="--")
         plt.gca().invert_yaxis()
         plt.legend()
-        plt.title(f"{dataset_name} - Love plot")
+        plt.title(f"{dataset_name} - Love plot (Continuous)")
+        plt.tight_layout()
 
-        plt.savefig(os.path.join(output_dir, f"{dataset_name}_love_plot.png"),
-                    dpi=300, bbox_inches="tight")
+        plt.savefig(
+            os.path.join(output_dir, f"{dataset_name}_love_plot_continuous.png"),
+            dpi=300,
+            bbox_inches="tight"
+        )
+        plt.close()
+
+        # 5.2 Categorical variables Love plot (dummy variables)
+        smd_before_cat = [smd(X_full, c) for c in cat_cols]
+        smd_after_cat  = [smd(X_matched, c) for c in cat_cols]
+
+        plt.figure()
+        plt.scatter(smd_before_cat, cat_cols, label="Before")
+        plt.scatter(smd_after_cat, cat_cols, label="After")
+        plt.axvline(0.1, linestyle="--")
+        plt.gca().invert_yaxis()
+        plt.legend()
+        plt.title(f"{dataset_name} - Love plot (Categorical)")
+        plt.tight_layout()
+
+        plt.savefig(
+            os.path.join(output_dir, f"{dataset_name}_love_plot_categorical.png"),
+            dpi=300,
+            bbox_inches="tight"
+        )
         plt.close()
 
         # 6 Table1
