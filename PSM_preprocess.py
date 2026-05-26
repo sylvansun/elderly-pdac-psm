@@ -4,6 +4,7 @@ import logging
 import os
 from utils import determine_pT
 
+
 def convert_to_numeric_with_fill(series, col_name):
     """
     将Series转换为数值型，无法转换的填充为 "/"
@@ -15,6 +16,7 @@ def convert_to_numeric_with_fill(series, col_name):
     except Exception as e:
         print(f"转换 {col_name} 时出错: {e}")
         return series
+
 
 def process_file(file_name):
     # ========= 创建日志文件 =========
@@ -30,15 +32,9 @@ def process_file(file_name):
     logger.setLevel(logging.INFO)
 
     # mode="w" 表示每次覆盖旧日志
-    file_handler = logging.FileHandler(
-        log_file,
-        mode="w",
-        encoding="utf-8"
-    )
+    file_handler = logging.FileHandler(log_file, mode="w", encoding="utf-8")
 
-    formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s"
-    )
+    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
     file_handler.setFormatter(formatter)
 
@@ -59,7 +55,7 @@ def process_file(file_name):
     # 去除包含 "/" 的行
     for col in required_cols:
         df = df[~df[col].astype(str).str.contains("/")]
- 
+
     # 替换异常值
     df["Tumor Size"] = df["Tumor Size"].replace("7、4", "7")
 
@@ -91,10 +87,7 @@ def process_file(file_name):
 
     # 清理 ASA Score
     df["ASA Score"] = (
-        df["ASA Score"]
-        .astype(str)
-        .str.strip()
-        .str.replace("\xa0", "", regex=False)
+        df["ASA Score"].astype(str).str.strip().str.replace("\xa0", "", regex=False)
     )
 
     # ========= 写入日志 =========
@@ -162,6 +155,7 @@ def process_file(file_name):
     )
 
     return df
+
 
 if __name__ == "__main__":
 

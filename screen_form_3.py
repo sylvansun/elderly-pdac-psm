@@ -26,7 +26,9 @@ def process_file(file_path):
     df_processed = df[df["死亡日期"] != ""].copy()
 
     final_count = len(df_processed)
-    print(f"Initial: {initial_count}, Final: {final_count}, Removed: {initial_count - final_count}")
+    print(
+        f"Initial: {initial_count}, Final: {final_count}, Removed: {initial_count - final_count}"
+    )
 
     # ===== 自动把文件名前缀 2 → 3 =====
     base_name = os.path.basename(file_path)

@@ -1,12 +1,14 @@
 import pandas as pd
 import numpy as np
 
+
 # SMD函数
 def smd(df, col):
     t = df[df["treat"] == 1][col]
     c = df[df["treat"] == 0][col]
     pooled = np.sqrt((t.var() + c.var()) / 2)
     return abs((t.mean() - c.mean()) / pooled)
+
 
 def smd_continuous(df, var, treat_col="treat"):
     g1 = df[df[treat_col] == 1][var]
@@ -21,6 +23,7 @@ def smd_continuous(df, var, treat_col="treat"):
         return 0
 
     return (mean1 - mean0) / pooled
+
 
 def smd_categorical(df, var, treat_col="treat"):
     levels = df[var].dropna().unique()
@@ -46,6 +49,7 @@ def smd_categorical(df, var, treat_col="treat"):
 
     return max(smd_list) if smd_list else 0
 
+
 # 贫血判断函数
 def is_anaemia(row):
     gender = row["Gender"]
@@ -60,7 +64,8 @@ def is_anaemia(row):
         return 1
     else:
         return 0
-    
+
+
 # 原发肿瘤T分期判断函数
 def determine_pT(row):
 
@@ -68,7 +73,7 @@ def determine_pT(row):
     vascular_cols = [
         "Vascular Invasion (SMA)",
         "Vascular Invasion (HA)",
-        "Vascular Invasion (AA)"
+        "Vascular Invasion (AA)",
     ]
     # 只要任意一个血管侵犯列为1 -> T4
     for col in vascular_cols:

@@ -39,11 +39,17 @@ def process(input_name, output_name):
 
     # 2️⃣ ASA麻醉评分：转为数值
     if "ASA麻醉评分" in df.columns:
-        df["ASA麻醉评分"] = df["ASA麻醉评分"].replace({"Ⅲ": 3, "III": 3, "Ⅱ": 2, "II": 2, "Ⅰ": 1, "I": 1})
+        df["ASA麻醉评分"] = df["ASA麻醉评分"].replace(
+            {"Ⅲ": 3, "III": 3, "Ⅱ": 2, "II": 2, "Ⅰ": 1, "I": 1}
+        )
 
     # 3️⃣ 肿瘤大小：如果是 2*1.5*0.5 这种，只保留第一个数字
     if "肿瘤大小" in df.columns:
-        df["肿瘤大小"] = df["肿瘤大小"].astype(str).apply(lambda x: x.split("*")[0] if "*" in x else x)
+        df["肿瘤大小"] = (
+            df["肿瘤大小"]
+            .astype(str)
+            .apply(lambda x: x.split("*")[0] if "*" in x else x)
+        )
 
     # 4️⃣ BMI 计算
     if "身高" in df.columns and "体重" in df.columns:
@@ -59,8 +65,12 @@ def process(input_name, output_name):
     before_death = df["死亡日期"].notna().sum() if "死亡日期" in df.columns else 0
     before_recur = df["复发时间"].notna().sum() if "复发时间" in df.columns else 0
     before_type = df["复发类型"].notna().sum() if "复发类型" in df.columns else 0
-    before_surv = df["随访概要：生存"].notna().sum() if "随访概要：生存" in df.columns else 0
-    before_stat = df["随访概要：状态"].notna().sum() if "随访概要：状态" in df.columns else 0
+    before_surv = (
+        df["随访概要：生存"].notna().sum() if "随访概要：生存" in df.columns else 0
+    )
+    before_stat = (
+        df["随访概要：状态"].notna().sum() if "随访概要：状态" in df.columns else 0
+    )
 
     # ---- 死亡日期 ----
     if "死亡日期" in df.columns:

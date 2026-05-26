@@ -254,7 +254,9 @@ try:
         df_wc["手术日期"] = pd.to_datetime(df_wc["手术日期"], errors="coerce")
 
         # 筛选年龄 >= 75 且 手术日期 >= 2015-01-01
-        filtered_df_wc = df_wc[(df_wc["病人年龄"] >= 75) & (df_wc["手术日期"] >= "2015-01-01")][target_columns]
+        filtered_df_wc = df_wc[
+            (df_wc["病人年龄"] >= 75) & (df_wc["手术日期"] >= "2015-01-01")
+        ][target_columns]
 
         if not filtered_df_wc.empty:
             # 将日期列重新转换为字符串以便保存，防止 excel 格式问题（可选，但通常 pd.to_excel 处理得很好）
@@ -266,7 +268,9 @@ try:
                 f"处理完成！筛选出 {len(filtered_df_wc)} 条满足 (年龄 >= 75 且 手术日期 >= 2015) 的记录，已保存至: {output_path_wc}"
             )
         else:
-            print("未找到符合复合条件（年龄 >= 75 岁 且 手术日期在 2015 年及以后）的患者记录。")
+            print(
+                "未找到符合复合条件（年龄 >= 75 岁 且 手术日期在 2015 年及以后）的患者记录。"
+            )
 
 except Exception as e:
     print(f"处理过程中出错: {e}")

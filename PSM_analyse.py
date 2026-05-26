@@ -23,7 +23,13 @@ from sksurv.metrics import cumulative_dynamic_auc
 from utils import smd_categorical, smd_continuous, smd
 
 CONTINUOUS_VARS = ["Age", "BMI", "Albumin"]
-CATEGORICAL_VARS = ["AJCC Stage", "ASA Score", "pTNM_T", "Anaemia", "Surgical procedure"]
+CATEGORICAL_VARS = [
+    "AJCC Stage",
+    "ASA Score",
+    "pTNM_T",
+    "Anaemia",
+    "Surgical procedure",
+]
 
 
 # =========================
@@ -61,11 +67,7 @@ def fit_ps_model(df_model):
     # =========================
     X_raw = df_model[CONTINUOUS_VARS + CATEGORICAL_VARS].copy()
 
-    X_encoded = pd.get_dummies(
-        X_raw,
-        columns=CATEGORICAL_VARS,
-        drop_first=True
-    )
+    X_encoded = pd.get_dummies(X_raw, columns=CATEGORICAL_VARS, drop_first=True)
 
     y = df_model["treat"]
 
@@ -78,10 +80,7 @@ def fit_ps_model(df_model):
     # =========================
     # 3. PS model
     # =========================
-    logit = LogisticRegression(
-        max_iter=2000,
-        random_state=42
-    )
+    logit = LogisticRegression(max_iter=2000, random_state=42)
 
     logit.fit(X_scaled, y)
 
@@ -117,7 +116,7 @@ def plot_ps_density(df_model, dataset_name, output_dir):
     plt.savefig(
         os.path.join(output_dir, f"{dataset_name}_ps_density.png"),
         dpi=300,
-        bbox_inches="tight"
+        bbox_inches="tight",
     )
     plt.close()
 
@@ -152,10 +151,7 @@ def ps_matching(df_model, caliper_ratio=0.2):
     treated_idx = [x[0] for x in matched_pairs]
     control_idx = [x[1] for x in matched_pairs]
 
-    matched_df = pd.concat([
-        df_model.loc[treated_idx],
-        df_model.loc[control_idx]
-    ])
+    matched_df = pd.concat([df_model.loc[treated_idx], df_model.loc[control_idx]])
 
     return matched_df
 
@@ -174,12 +170,9 @@ def compute_table1(matched_df):
 
         p = stats.ttest_ind(t, c).pvalue
 
-        rows.append([
-            var,
-            f"{t.mean():.2f}±{t.std():.2f}",
-            f"{c.mean():.2f}±{c.std():.2f}",
-            p
-        ])
+        rows.append(
+            [var, f"{t.mean():.2f}±{t.std():.2f}", f"{c.mean():.2f}±{c.std():.2f}", p]
+        )
 
     return pd.DataFrame(rows, columns=["Variable", "MIS", "OPEN", "p"])
 
@@ -187,43 +180,23 @@ def compute_table1(matched_df):
 # =========================
 # 6. SMD Love plot
 # =========================
-def plot_smd(
-        X_before,
-        matched_df,
-        dataset_name,
-        output_dir
-    ):
+def plot_smd(X_before, matched_df, dataset_name, output_dir):
 
-    X_full = pd.concat(
-        [X_before, matched_df["treat"]],
-        axis=1
-    )
+    X_full = pd.concat([X_before, matched_df["treat"]], axis=1)
 
     # before matching
-    continuous_smd_before = [
-        smd(X_full, c)
-        for c in CONTINUOUS_VARS
-    ]
+    continuous_smd_before = [smd(X_full, c) for c in CONTINUOUS_VARS]
 
     # after matching
     continuous_smd_after = [
-        smd(X_full.loc[matched_df.index], c)
-        for c in CONTINUOUS_VARS
+        smd(X_full.loc[matched_df.index], c) for c in CONTINUOUS_VARS
     ]
 
     plt.figure(figsize=(6, 4))
 
-    plt.scatter(
-        continuous_smd_before,
-        CONTINUOUS_VARS,
-        label="Before Matching"
-    )
+    plt.scatter(continuous_smd_before, CONTINUOUS_VARS, label="Before Matching")
 
-    plt.scatter(
-        continuous_smd_after,
-        CONTINUOUS_VARS,
-        label="After Matching"
-    )
+    plt.scatter(continuous_smd_after, CONTINUOUS_VARS, label="After Matching")
 
     plt.axvline(0.1, linestyle="--")
 
@@ -238,35 +211,24 @@ def plot_smd(
     plt.tight_layout()
 
     plt.savefig(
-        os.path.join(
-            output_dir,
-            f"{dataset_name}_love_plot.png"
-        ),
+        os.path.join(output_dir, f"{dataset_name}_love_plot.png"),
         dpi=300,
-        bbox_inches="tight"
+        bbox_inches="tight",
     )
 
     plt.close()
 
-def plot_love_continuous(
-        df_before,
-        df_after,
-        dataset_name,
-        output_dir
-):
+
+def plot_love_continuous(df_before, df_after, dataset_name, output_dir):
 
     before_smd = []
     after_smd = []
 
     for var in CONTINUOUS_VARS:
 
-        before_smd.append(
-            smd_continuous(df_before, var)
-        )
+        before_smd.append(smd_continuous(df_before, var))
 
-        after_smd.append(
-            smd_continuous(df_after, var)
-        )
+        after_smd.append(smd_continuous(df_after, var))
 
     plt.figure(figsize=(6, 4))
 
@@ -283,31 +245,22 @@ def plot_love_continuous(
     plt.tight_layout()
 
     plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_love_continuous.png"),
-        dpi=300
+        os.path.join(output_dir, f"{dataset_name}_love_continuous.png"), dpi=300
     )
 
     plt.close()
 
-def plot_love_categorical(
-        df_before,
-        df_after,
-        dataset_name,
-        output_dir
-):
+
+def plot_love_categorical(df_before, df_after, dataset_name, output_dir):
 
     before_smd = []
     after_smd = []
 
     for var in CATEGORICAL_VARS:
 
-        before_smd.append(
-            smd_categorical(df_before, var)
-        )
+        before_smd.append(smd_categorical(df_before, var))
 
-        after_smd.append(
-            smd_categorical(df_after, var)
-        )
+        after_smd.append(smd_categorical(df_after, var))
 
     plt.figure(figsize=(6, 4))
 
@@ -324,11 +277,11 @@ def plot_love_categorical(
     plt.tight_layout()
 
     plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_love_categorical.png"),
-        dpi=300
+        os.path.join(output_dir, f"{dataset_name}_love_categorical.png"), dpi=300
     )
 
     plt.close()
+
 
 # =========================
 # 7. 单个dataset pipeline
@@ -356,89 +309,46 @@ def run_single_dataset(file_path, output_dir):
     df_before = df_model.copy()
     df_after = matched_df.copy()
 
-    plot_love_continuous(
-        df_before,
-        df_after,
-        dataset_name,
-        output_dir
-    )
+    plot_love_continuous(df_before, df_after, dataset_name, output_dir)
 
-    plot_love_categorical(
-        df_before,
-        df_after,
-        dataset_name,
-        output_dir
-    )
+    plot_love_categorical(df_before, df_after, dataset_name, output_dir)
     # KM
-    run_km_analysis(
-        matched_df,
-        dataset_name,
-        output_dir
-    )
+    run_km_analysis(matched_df, dataset_name, output_dir)
 
     # Cox
-    cph, result_table = run_cox_analysis(
-        matched_df,
-        dataset_name,
-        output_dir
-    )
+    cph, result_table = run_cox_analysis(matched_df, dataset_name, output_dir)
 
     # forest plot
-    plot_cox_forest(
-        result_table,
-        dataset_name,
-        output_dir
-    )
+    plot_cox_forest(result_table, dataset_name, output_dir)
 
     # RSF
-    rsf, ml_X, y_ml = run_rsf_analysis(
-        matched_df,
-        dataset_name,
-        output_dir
-    )
+    rsf, ml_X, y_ml = run_rsf_analysis(matched_df, dataset_name, output_dir)
 
     # Time ROC
-    plot_time_auc(
-        rsf,
-        ml_X,
-        y_ml,
-        dataset_name,
-        output_dir
-    )
+    plot_time_auc(rsf, ml_X, y_ml, dataset_name, output_dir)
 
     # Importance
-    plot_feature_importance(
-        rsf,
-        ml_X,
-        y_ml,
-        dataset_name,
-        output_dir
-    )
+    plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir)
 
     matched_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_PSM_dataset.xlsx"),
-        index=False
+        os.path.join(output_dir, f"{dataset_name}_PSM_dataset.xlsx"), index=False
     )
 
     # table1
     table1 = compute_table1(matched_df)
 
     table1.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_Table1.xlsx"),
-        index=False
+        os.path.join(output_dir, f"{dataset_name}_Table1.xlsx"), index=False
     )
 
     return df_model, matched_df
+
 
 # =========================
 # 8. Kaplan-Meier analysis
 # =========================
 def run_km_analysis(
-        matched_df,
-        dataset_name,
-        output_dir,
-        time_col="OS",
-        event_col="Survival Status"
+    matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
 ):
 
     g0 = matched_df[matched_df["treat"] == 0]
@@ -450,11 +360,7 @@ def run_km_analysis(
 
     for g, label in zip([g0, g1], ["OPEN", "MIS"]):
 
-        kmf.fit(
-            durations=g[time_col],
-            event_observed=g[event_col],
-            label=label
-        )
+        kmf.fit(durations=g[time_col], event_observed=g[event_col], label=label)
 
         kmf.plot_survival_function(ci_show=True)
 
@@ -463,7 +369,7 @@ def run_km_analysis(
         g0[time_col],
         g1[time_col],
         event_observed_A=g0[event_col],
-        event_observed_B=g1[event_col]
+        event_observed_B=g1[event_col],
     )
 
     p_value = res.p_value
@@ -472,19 +378,14 @@ def run_km_analysis(
     plt.xlabel("Time")
     plt.ylabel("Survival Probability")
 
-    plt.text(
-        0.6,
-        0.1,
-        f"log-rank p = {p_value:.4f}",
-        transform=plt.gca().transAxes
-    )
+    plt.text(0.6, 0.1, f"log-rank p = {p_value:.4f}", transform=plt.gca().transAxes)
 
     plt.tight_layout()
 
     plt.savefig(
         os.path.join(output_dir, f"{dataset_name}_KM_curve.png"),
         dpi=300,
-        bbox_inches="tight"
+        bbox_inches="tight",
     )
 
     plt.close()
@@ -493,30 +394,21 @@ def run_km_analysis(
 
     return p_value
 
+
 # =========================
 # 9. Cox regression
 # =========================
 def run_cox_analysis(
-        matched_df,
-        dataset_name,
-        output_dir,
-        time_col="OS",
-        event_col="Survival Status"
+    matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
 ):
 
     cox_vars = ["treat"] + CONTINUOUS_VARS
 
-    cox_df = matched_df[
-        [time_col, event_col] + cox_vars
-    ].copy()
+    cox_df = matched_df[[time_col, event_col] + cox_vars].copy()
 
     cph = CoxPHFitter()
 
-    cph.fit(
-        cox_df,
-        duration_col=time_col,
-        event_col=event_col
-    )
+    cph.fit(cox_df, duration_col=time_col, event_col=event_col)
 
     # summary table
     summary = cph.summary.copy()
@@ -525,26 +417,19 @@ def run_cox_analysis(
     summary["HR_lower"] = np.exp(summary["coef lower 95%"])
     summary["HR_upper"] = np.exp(summary["coef upper 95%"])
 
-    result_table = summary[
-        ["HR", "HR_lower", "HR_upper", "p"]
-    ]
+    result_table = summary[["HR", "HR_lower", "HR_upper", "p"]]
 
-    result_table.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_Cox_results.xlsx")
-    )
+    result_table.to_excel(os.path.join(output_dir, f"{dataset_name}_Cox_results.xlsx"))
 
     print("\nCox regression completed.")
 
     return cph, result_table
 
+
 # =========================
 # 10. Forest plot
 # =========================
-def plot_cox_forest(
-        result_table,
-        dataset_name,
-        output_dir
-):
+def plot_cox_forest(result_table, dataset_name, output_dir):
 
     plt.figure(figsize=(6, 4))
 
@@ -554,12 +439,7 @@ def plot_cox_forest(
     lower = result_table["HR_lower"]
     upper = result_table["HR_upper"]
 
-    plt.errorbar(
-        hr,
-        y_pos,
-        xerr=[hr - lower, upper - hr],
-        fmt='o'
-    )
+    plt.errorbar(hr, y_pos, xerr=[hr - lower, upper - hr], fmt="o")
 
     plt.yticks(y_pos, result_table.index)
 
@@ -573,36 +453,29 @@ def plot_cox_forest(
     plt.savefig(
         os.path.join(output_dir, f"{dataset_name}_Cox_forest.png"),
         dpi=300,
-        bbox_inches="tight"
+        bbox_inches="tight",
     )
 
     plt.close()
+
 
 # =========================
 # 11. Random Survival Forest
 # =========================
 def run_rsf_analysis(
-        matched_df,
-        dataset_name,
-        output_dir,
-        time_col="OS",
-        event_col="Survival Status"
+    matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
 ):
 
     ml_X = matched_df[CONTINUOUS_VARS]
 
-    y_ml = Surv.from_dataframe(
-        event_col,
-        time_col,
-        matched_df
-    )
+    y_ml = Surv.from_dataframe(event_col, time_col, matched_df)
 
     rsf = RandomSurvivalForest(
         n_estimators=500,
         min_samples_split=10,
         min_samples_leaf=15,
         random_state=42,
-        n_jobs=-1
+        n_jobs=-1,
     )
 
     rsf.fit(ml_X, y_ml)
@@ -611,13 +484,8 @@ def run_rsf_analysis(
 
     return rsf, ml_X, y_ml
 
-def plot_time_auc(
-        rsf,
-        ml_X,
-        y_ml,
-        dataset_name,
-        output_dir
-):
+
+def plot_time_auc(rsf, ml_X, y_ml, dataset_name, output_dir):
 
     # =========================
     # 1. 原始候选时间点
@@ -630,10 +498,7 @@ def plot_time_auc(
     # =========================
     # 2. 过滤
     # =========================
-    times = raw_times[
-        (raw_times >= min_followup) &
-        (raw_times < max_followup)
-    ]
+    times = raw_times[(raw_times >= min_followup) & (raw_times < max_followup)]
 
     # =========================
     # 3. 🔥 fallback（关键）
@@ -641,10 +506,7 @@ def plot_time_auc(
     if len(times) == 0:
         print("⚠️ Warning: default times invalid, using quantiles instead")
 
-        times = np.quantile(
-            y_ml["OS"],
-            [0.25, 0.5, 0.75]
-        )
+        times = np.quantile(y_ml["OS"], [0.25, 0.5, 0.75])
 
         times = np.unique(times)
 
@@ -657,12 +519,7 @@ def plot_time_auc(
     # =========================
     risk_scores = rsf.predict(ml_X)
 
-    auc, mean_auc = cumulative_dynamic_auc(
-        y_ml,
-        y_ml,
-        risk_scores,
-        times
-    )
+    auc, mean_auc = cumulative_dynamic_auc(y_ml, y_ml, risk_scores, times)
 
     # =========================
     # 5. plot
@@ -674,16 +531,14 @@ def plot_time_auc(
     plt.xlabel("Time")
     plt.ylabel("AUC")
 
-    plt.title(
-        f"{dataset_name} Time-dependent ROC\nMean AUC={mean_auc:.3f}"
-    )
+    plt.title(f"{dataset_name} Time-dependent ROC\nMean AUC={mean_auc:.3f}")
 
     plt.tight_layout()
 
     plt.savefig(
         os.path.join(output_dir, f"{dataset_name}_TimeROC.png"),
         dpi=300,
-        bbox_inches="tight"
+        bbox_inches="tight",
     )
 
     plt.close()
@@ -692,42 +547,25 @@ def plot_time_auc(
 
     return auc, mean_auc
 
+
 # =========================
 # 13. Feature importance
 # =========================
-def plot_feature_importance(
-        rsf,
-        ml_X,
-        y_ml,
-        dataset_name,
-        output_dir
-):
+def plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir):
 
     perm = permutation_importance(
-        rsf,
-        ml_X,
-        y_ml,
-        n_repeats=20,
-        random_state=42,
-        n_jobs=-1
+        rsf, ml_X, y_ml, n_repeats=20, random_state=42, n_jobs=-1
     )
 
-    importance_df = pd.DataFrame({
-        "Feature": ml_X.columns,
-        "Importance": perm.importances_mean
-    })
-
-    importance_df = importance_df.sort_values(
-        "Importance",
-        ascending=False
+    importance_df = pd.DataFrame(
+        {"Feature": ml_X.columns, "Importance": perm.importances_mean}
     )
+
+    importance_df = importance_df.sort_values("Importance", ascending=False)
 
     plt.figure(figsize=(8, 5))
 
-    plt.barh(
-        importance_df["Feature"],
-        importance_df["Importance"]
-    )
+    plt.barh(importance_df["Feature"], importance_df["Importance"])
 
     plt.gca().invert_yaxis()
 
@@ -740,17 +578,17 @@ def plot_feature_importance(
     plt.savefig(
         os.path.join(output_dir, f"{dataset_name}_RSF_importance.png"),
         dpi=300,
-        bbox_inches="tight"
+        bbox_inches="tight",
     )
 
     plt.close()
 
     importance_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_RSF_importance.xlsx"),
-        index=False
+        os.path.join(output_dir, f"{dataset_name}_RSF_importance.xlsx"), index=False
     )
 
     return importance_df
+
 
 # =========================
 # batch入口
@@ -764,13 +602,11 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
 
     print("\nAll datasets processed successfully.")
 
+
 if __name__ == "__main__":
 
     set_seed(42)
 
-    files = [
-        "complications.xlsx",
-        "elderly.xlsx"
-    ]
+    files = ["complications.xlsx", "elderly.xlsx"]
 
     run_psm_batch(files)
