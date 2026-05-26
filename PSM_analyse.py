@@ -20,7 +20,7 @@ from sksurv.util import Surv
 from sksurv.ensemble import RandomSurvivalForest
 from sksurv.metrics import cumulative_dynamic_auc
 
-from utils import smd
+from utils import smd_categorical, smd_continuous, smd
 
 CONTINUOUS_VARS = ["Age", "BMI", "Albumin"]
 CATEGORICAL_VARS = ["AJCC Stage", "ASA Score", "pTNM_T", "Anaemia", "Surgical procedure"]
@@ -248,6 +248,87 @@ def plot_smd(
 
     plt.close()
 
+def plot_love_continuous(
+        df_before,
+        df_after,
+        dataset_name,
+        output_dir
+):
+
+    before_smd = []
+    after_smd = []
+
+    for var in CONTINUOUS_VARS:
+
+        before_smd.append(
+            smd_continuous(df_before, var)
+        )
+
+        after_smd.append(
+            smd_continuous(df_after, var)
+        )
+
+    plt.figure(figsize=(6, 4))
+
+    plt.scatter(before_smd, CONTINUOUS_VARS, label="Before", marker="o")
+    plt.scatter(after_smd, CONTINUOUS_VARS, label="After", marker="o")
+
+    plt.axvline(0.1, linestyle="--")
+
+    plt.xlabel("Standardized Mean Difference")
+    plt.title(f"{dataset_name} Love Plot - Continuous")
+
+    plt.gca().invert_yaxis()
+    plt.legend()
+    plt.tight_layout()
+
+    plt.savefig(
+        os.path.join(output_dir, f"{dataset_name}_love_continuous.png"),
+        dpi=300
+    )
+
+    plt.close()
+
+def plot_love_categorical(
+        df_before,
+        df_after,
+        dataset_name,
+        output_dir
+):
+
+    before_smd = []
+    after_smd = []
+
+    for var in CATEGORICAL_VARS:
+
+        before_smd.append(
+            smd_categorical(df_before, var)
+        )
+
+        after_smd.append(
+            smd_categorical(df_after, var)
+        )
+
+    plt.figure(figsize=(6, 4))
+
+    plt.scatter(before_smd, CATEGORICAL_VARS, label="Before", marker="s")
+    plt.scatter(after_smd, CATEGORICAL_VARS, label="After", marker="s")
+
+    plt.axvline(0.1, linestyle="--")
+
+    plt.xlabel("Standardized Mean Difference")
+    plt.title(f"{dataset_name} Love Plot - Categorical")
+
+    plt.gca().invert_yaxis()
+    plt.legend()
+    plt.tight_layout()
+
+    plt.savefig(
+        os.path.join(output_dir, f"{dataset_name}_love_categorical.png"),
+        dpi=300
+    )
+
+    plt.close()
 
 # =========================
 # 7. 单个dataset pipeline
@@ -272,9 +353,19 @@ def run_single_dataset(file_path, output_dir):
     matched_df = ps_matching(df_model)
 
     # love plot
-    plot_smd(
-        X_encoded,
-        matched_df,
+    df_before = df_model.copy()
+    df_after = matched_df.copy()
+
+    plot_love_continuous(
+        df_before,
+        df_after,
+        dataset_name,
+        output_dir
+    )
+
+    plot_love_categorical(
+        df_before,
+        df_after,
         dataset_name,
         output_dir
     )

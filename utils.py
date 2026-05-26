@@ -8,6 +8,44 @@ def smd(df, col):
     pooled = np.sqrt((t.var() + c.var()) / 2)
     return abs((t.mean() - c.mean()) / pooled)
 
+def smd_continuous(df, var, treat_col="treat"):
+    g1 = df[df[treat_col] == 1][var]
+    g0 = df[df[treat_col] == 0][var]
+
+    mean1, mean0 = g1.mean(), g0.mean()
+    std1, std0 = g1.std(), g0.std()
+
+    pooled = np.sqrt((std1**2 + std0**2) / 2)
+
+    if pooled == 0:
+        return 0
+
+    return (mean1 - mean0) / pooled
+
+def smd_categorical(df, var, treat_col="treat"):
+    levels = df[var].dropna().unique()
+
+    smd_list = []
+
+    for lv in levels:
+
+        g1 = df[df[treat_col] == 1]
+        g0 = df[df[treat_col] == 0]
+
+        p1 = np.mean(g1[var] == lv)
+        p0 = np.mean(g0[var] == lv)
+
+        p = (p1 + p0) / 2
+
+        if p == 0:
+            continue
+
+        smd = (p1 - p0) / np.sqrt(p * (1 - p))
+
+        smd_list.append(abs(smd))
+
+    return max(smd_list) if smd_list else 0
+
 # 贫血判断函数
 def is_anaemia(row):
     gender = row["Gender"]
