@@ -7,6 +7,8 @@ import random
 import shap
 
 from scipy import stats
+from scipy.stats import chi2_contingency, fisher_exact
+from statsmodels.stats.contingency_tables import Table2x2
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
@@ -310,8 +312,15 @@ def run_single_dataset(file_path, output_dir):
     df_after = matched_df.copy()
 
     plot_love_continuous(df_before, df_after, dataset_name, output_dir)
-
     plot_love_categorical(df_before, df_after, dataset_name, output_dir)
+
+    # table1
+    table1 = compute_table1(matched_df)
+
+    table1.to_excel(
+        os.path.join(output_dir, f"{dataset_name}_Table1.xlsx"), index=False
+    )
+
     # KM
     run_km_analysis(matched_df, dataset_name, output_dir)
 
@@ -330,15 +339,10 @@ def run_single_dataset(file_path, output_dir):
     # Importance
     plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir)
 
+    run_two_year_os_analysis(matched_df, dataset_name, output_dir)
+
     matched_df.to_excel(
         os.path.join(output_dir, f"{dataset_name}_PSM_dataset.xlsx"), index=False
-    )
-
-    # table1
-    table1 = compute_table1(matched_df)
-
-    table1.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_Table1.xlsx"), index=False
     )
 
     return df_model, matched_df
@@ -588,6 +592,126 @@ def plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir):
     )
 
     return importance_df
+
+
+# =============================
+# 2-Year OS analysis (save version)
+# =============================
+def run_two_year_os_analysis(
+    matched_df,
+    dataset_name,
+    output_dir,
+    time_col="OS",
+    event_col="Survival Status",
+    landmark_months=24,
+):
+
+    df = matched_df.copy()
+
+    # =============================
+    # 1. 2-year OS status
+    # =============================
+    df["OS_2yr"] = np.where(
+        (df[time_col] >= landmark_months)
+        | ((df[time_col] < landmark_months) & (df[event_col] == 0)),
+        1,
+        0,
+    )
+
+    # =============================
+    # contingency table (SAFE FIX)
+    # =============================
+    table = pd.crosstab(df["treat"], df["OS_2yr"])
+
+    # 🔥 保证两列一定存在（0=death, 1=alive）
+    if 0 not in table.columns:
+        table[0] = 0
+    if 1 not in table.columns:
+        table[1] = 0
+
+    # 重新排序列（必须）
+    table = table[[0, 1]]
+
+    # 改名字
+    table.index = ["OPEN", "MIS"]
+    table.columns = ["Death<2yr", "Alive≥2yr"]
+
+    # =============================
+    # 3. survival rate
+    # =============================
+    open_survival = table.loc["OPEN", "Alive≥2yr"] / table.loc["OPEN"].sum()
+    mis_survival = table.loc["MIS", "Alive≥2yr"] / table.loc["MIS"].sum()
+
+    # =============================
+    # 4. chi-square test
+    # =============================
+    use_fisher = False
+
+    if (table.values == 0).any():
+        use_fisher = True
+
+    elif (table < 5).any().any():
+        use_fisher = True
+
+    # =============================
+    # test
+    # =============================
+    if use_fisher:
+        from scipy.stats import fisher_exact
+
+        _, p = fisher_exact(table.values)
+        test_used = "Fisher exact test"
+
+    else:
+        chi2, p, dof, expected = chi2_contingency(table)
+        test_used = "Chi-square test"
+
+    # =============================
+    # 5. odds ratio
+    ct = Table2x2(table.values)
+    or_val = ct.oddsratio
+    ci_low, ci_high = ct.oddsratio_confint()
+
+    # =============================
+    # 6. risk difference
+    risk_diff = mis_survival - open_survival
+
+    # =============================
+    # 7. results dataframe
+    # =============================
+    summary_df = pd.DataFrame(
+        {"Group": ["OPEN", "MIS"], "2yr_survival": [open_survival, mis_survival]}
+    )
+
+    stats_df = pd.DataFrame(
+        {
+            "Metric": [
+                "Chi-square p",
+                "Odds Ratio",
+                "OR 95% CI low",
+                "OR 95% CI high",
+                "Absolute Risk Difference (MIS-OPEN)",
+            ],
+            "Value": [p, or_val, ci_low, ci_high, risk_diff],
+        }
+    )
+
+    # =============================
+    # 8. save outputs
+    # =============================
+    os.makedirs(output_dir, exist_ok=True)
+
+    summary_df.to_excel(
+        os.path.join(output_dir, f"{dataset_name}_2yr_OS_rates.xlsx"), index=False
+    )
+
+    stats_df.to_excel(
+        os.path.join(output_dir, f"{dataset_name}_2yr_OS_stats.xlsx"), index=False
+    )
+
+    table.to_excel(os.path.join(output_dir, f"{dataset_name}_2yr_OS_table.xlsx"))
+
+    return summary_df, stats_df, table
 
 
 # =========================
