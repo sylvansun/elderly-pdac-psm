@@ -594,119 +594,206 @@ def plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir):
     return importance_df
 
 
-# =============================
-# 2-Year OS analysis (save version)
-# =============================
+# ==========================================
+# 2-Year Overall Survival Analysis
+# OS time unit = DAYS
+# ==========================================
 def run_two_year_os_analysis(
     matched_df,
     dataset_name,
     output_dir,
     time_col="OS",
     event_col="Survival Status",
-    landmark_months=24,
+    landmark_days=730,  # 2 years
 ):
 
+    # ==========================================
+    # 0. copy dataframe
+    # ==========================================
     df = matched_df.copy()
 
-    # =============================
-    # 1. 2-year OS status
-    # =============================
+    # ==========================================
+    # 1. basic cleaning
+    # ==========================================
+    df = df[[time_col, event_col, "treat"]].copy()
+
+    # remove missing
+    df = df.dropna(subset=[time_col, event_col, "treat"])
+
+    # force numeric
+    df[time_col] = pd.to_numeric(df[time_col], errors="coerce")
+    df[event_col] = pd.to_numeric(df[event_col], errors="coerce")
+
+    # drop invalid
+    df = df.dropna(subset=[time_col, event_col])
+
+    # ==========================================
+    # event definition
+    #
+    # ASSUMED:
+    # 1 = death
+    # 0 = censored/alive
+    # ==========================================
+
+    # ==========================================
+    # 3. define 2-year OS status
+    # ==========================================
+    #
+    # Alive at 2yr:
+    #   - survived >=730 days
+    #   - censored before 730 days
+    #
+    # Dead before 2yr:
+    #   - died before 730 days
+    #
+    # ==========================================
+
     df["OS_2yr"] = np.where(
-        (df[time_col] >= landmark_months)
-        | ((df[time_col] < landmark_months) & (df[event_col] == 0)),
-        1,
-        0,
+        (
+            (df[time_col] >= landmark_days)
+            | ((df[time_col] < landmark_days) & (df[event_col] == 0))
+        ),
+        1,  # alive
+        0,  # dead
     )
 
-    # =============================
-    # contingency table (SAFE FIX)
-    # =============================
+    # ==========================================
+    # 4. contingency table
+    # ==========================================
     table = pd.crosstab(df["treat"], df["OS_2yr"])
 
-    # 🔥 保证两列一定存在（0=death, 1=alive）
-    if 0 not in table.columns:
-        table[0] = 0
-    if 1 not in table.columns:
-        table[1] = 0
+    # ensure both columns exist
+    for col in [0, 1]:
+        if col not in table.columns:
+            table[col] = 0
 
-    # 重新排序列（必须）
+    # reorder columns
     table = table[[0, 1]]
 
-    # 改名字
+    # rename
     table.index = ["OPEN", "MIS"]
     table.columns = ["Death<2yr", "Alive≥2yr"]
 
-    # =============================
-    # 3. survival rate
-    # =============================
+    print("2-year OS contingency table:")
+    print(table)
+
+    # ==========================================
+    # 5. survival rates
+    # ==========================================
     open_survival = table.loc["OPEN", "Alive≥2yr"] / table.loc["OPEN"].sum()
+
     mis_survival = table.loc["MIS", "Alive≥2yr"] / table.loc["MIS"].sum()
 
-    # =============================
-    # 4. chi-square test
-    # =============================
-    use_fisher = False
+    # ==========================================
+    # 6. choose statistical test
+    # ==========================================
+    #
+    # Fisher:
+    #   if any expected cell <5
+    #
+    # Chi-square:
+    #   otherwise
+    #
+    # ==========================================
 
-    if (table.values == 0).any():
+    chi2, p_chi, dof, expected = chi2_contingency(table)
+
+    if (expected < 5).any():
         use_fisher = True
+    else:
+        use_fisher = False
 
-    elif (table < 5).any().any():
-        use_fisher = True
-
-    # =============================
-    # test
-    # =============================
+    # ==========================================
+    # 7. perform test
+    # ==========================================
     if use_fisher:
-        from scipy.stats import fisher_exact
 
         _, p = fisher_exact(table.values)
+
         test_used = "Fisher exact test"
 
     else:
-        chi2, p, dof, expected = chi2_contingency(table)
+
+        p = p_chi
+
         test_used = "Chi-square test"
 
-    # =============================
-    # 5. odds ratio
-    ct = Table2x2(table.values)
+    # ==========================================
+    # 8. odds ratio
+    # ==========================================
+    #
+    # add 0.5 continuity correction
+    # if zero cell exists
+    #
+    # ==========================================
+
+    table_for_or = table.values.astype(float)
+
+    if (table_for_or == 0).any():
+        table_for_or += 0.5
+
+    ct = Table2x2(table_for_or)
+
     or_val = ct.oddsratio
+
     ci_low, ci_high = ct.oddsratio_confint()
 
-    # =============================
-    # 6. risk difference
+    # ==========================================
+    # 9. risk difference
+    # ==========================================
     risk_diff = mis_survival - open_survival
 
-    # =============================
-    # 7. results dataframe
-    # =============================
+    # ==========================================
+    # 10. results dataframe
+    # ==========================================
     summary_df = pd.DataFrame(
-        {"Group": ["OPEN", "MIS"], "2yr_survival": [open_survival, mis_survival]}
+        {
+            "Group": ["OPEN", "MIS"],
+            "2yr_survival_rate": [
+                open_survival,
+                mis_survival,
+            ],
+            "2yr_survival_percent": [
+                round(open_survival * 100, 2),
+                round(mis_survival * 100, 2),
+            ],
+        }
     )
 
     stats_df = pd.DataFrame(
         {
             "Metric": [
-                "Chi-square p",
+                "Statistical test",
+                "P value",
                 "Odds Ratio",
                 "OR 95% CI low",
                 "OR 95% CI high",
                 "Absolute Risk Difference (MIS-OPEN)",
             ],
-            "Value": [p, or_val, ci_low, ci_high, risk_diff],
+            "Value": [
+                test_used,
+                p,
+                or_val,
+                ci_low,
+                ci_high,
+                risk_diff,
+            ],
         }
     )
 
-    # =============================
-    # 8. save outputs
-    # =============================
+    # ==========================================
+    # 11. save outputs
+    # ==========================================
     os.makedirs(output_dir, exist_ok=True)
 
     summary_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_2yr_OS_rates.xlsx"), index=False
+        os.path.join(output_dir, f"{dataset_name}_2yr_OS_rates.xlsx"),
+        index=False,
     )
 
     stats_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_2yr_OS_stats.xlsx"), index=False
+        os.path.join(output_dir, f"{dataset_name}_2yr_OS_stats.xlsx"),
+        index=False,
     )
 
     table.to_excel(os.path.join(output_dir, f"{dataset_name}_2yr_OS_table.xlsx"))
