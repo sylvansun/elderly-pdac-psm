@@ -16,22 +16,14 @@ from sklearn.inspection import permutation_importance
 
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
-from lifelines import CoxPHFitter
 
 from sksurv.util import Surv
 from sksurv.ensemble import RandomSurvivalForest
 from sksurv.metrics import cumulative_dynamic_auc
 
+from config import CATEGORICAL_VARS, CONTINUOUS_VARS
+from analysis import run_cox_analysis
 from utils import smd_categorical, smd_continuous, smd
-
-CONTINUOUS_VARS = ["Age", "BMI", "Albumin"]
-CATEGORICAL_VARS = [
-    "AJCC Stage",
-    "ASA Score",
-    "pTNM_T",
-    "Anaemia",
-    "Surgical procedure",
-]
 
 
 # =========================
@@ -397,37 +389,6 @@ def run_km_analysis(
     print(f"KM analysis finished: p={p_value:.4f}")
 
     return p_value
-
-
-# =========================
-# 9. Cox regression
-# =========================
-def run_cox_analysis(
-    matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
-):
-
-    cox_vars = ["treat"] + CONTINUOUS_VARS
-
-    cox_df = matched_df[[time_col, event_col] + cox_vars].copy()
-
-    cph = CoxPHFitter()
-
-    cph.fit(cox_df, duration_col=time_col, event_col=event_col)
-
-    # summary table
-    summary = cph.summary.copy()
-
-    summary["HR"] = np.exp(summary["coef"])
-    summary["HR_lower"] = np.exp(summary["coef lower 95%"])
-    summary["HR_upper"] = np.exp(summary["coef upper 95%"])
-
-    result_table = summary[["HR", "HR_lower", "HR_upper", "p"]]
-
-    result_table.to_excel(os.path.join(output_dir, f"{dataset_name}_Cox_results.xlsx"))
-
-    print("\nCox regression completed.")
-
-    return cph, result_table
 
 
 # =========================
