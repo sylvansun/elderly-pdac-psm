@@ -1,0 +1,4 @@
+{
+    "python.defaultInterpreterPath": "/opt/anaconda3/envs/survival/bin/python",
+    "python.terminal.activateEnvironment": true
+}

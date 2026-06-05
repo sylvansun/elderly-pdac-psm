@@ -1,0 +1,53 @@
+2026-05-13 18:49:47,045 - INFO - 
+===== 5总_并发症_processed.xlsx =====
+2026-05-13 18:49:47,046 - INFO - 
+总样本数：
+2026-05-13 18:49:47,046 - INFO - 642
+2026-05-13 18:49:47,046 - INFO - 
+列名：
+2026-05-13 18:49:47,046 - INFO - ['住院号', 'Age', 'Gender', 'Height', 'Weight', 'Name', 'Surgical procedure', 'Surgery Date', 'ASA Score', 'Comorbidities', 'WBC', 'NE', 'RBC', 'Hb', 'PLT', 'Total Bilirubin', 'Direct Bilirubin', 'Total Protein', 'Albumin', 'Amylase', 'Fasting Blood Glucose', 'CA125', 'CA19-9', 'CEA', 'AFP', 'CA724', 'CA242', 'Pathological Diagnosis', 'Tumor Size', 'Nerve Invasion', 'Vascular Invasion (SMV)', 'Vascular Invasion (PV)', 'Vascular Invasion (SMA)', 'Vascular Invasion (HA)', 'Vascular Invasion (SV)', 'Vascular Invasion (SA)', 'Vascular Invasion (AA)', 'Vascular Invasion (GDA)', 'Vascular Invasion (LGA)', 'Organ Invasion (Duodenum)', 'Organ Invasion (Liver)', 'Organ Invasion (Gallbladder)', 'Organ Invasion (Bile Duct)', 'Organ Invasion (Stomach)', 'Organ Invasion (Small Intestine)', 'Organ Invasion (Transverse Colon)', 'Organ Invasion (Diaphragm)', 'Organ Invasion (Spleen)', 'Organ Invasion (Omentum)', 'AJCC Stage', 'Complication (Pancreatic Fistula)', 'Complication (Bile Fistula)', 'Complication (Gastrointestinal Fistula)', 'Complication (Intra-abdominal Bleeding)', 'Complication (Infection)', 'Complication (Other)', 'Pancreatic Fistula Grade (ISGPF)', 'Reoperation', 'Reoperation Reason', 'Postoperative Transfusion', 'In-hospital Death', 'Postoperative Chemotherapy Regimen', 'Duration', 'Follow-up Status', 'Survival Status', 'Death Date', 'OS', 'Recurrence Time', '复发类型', '随访概要：生存', '随访概要：状态', 'Recurrence Site', 'Metastasis Time', 'Metastasis Site', 'BMI', 'Surgical approach', 'Hypertension', 'Diabetes', 'Vascular Invasion', 'Delete', 'Anaemia', 'pTNM_T']
+2026-05-13 18:49:47,046 - INFO - 
+Surgical approach 分布：
+2026-05-13 18:49:47,046 - INFO - 
+Surgical approach
+OPEN    554
+MIS      88
+Name: count, dtype: int64
+2026-05-13 18:49:47,046 - INFO - 
+Surgical procedure 分布：
+2026-05-13 18:49:47,046 - INFO - 
+Surgical procedure
+PD    332
+DP    258
+TP     52
+Name: count, dtype: int64
+2026-05-13 18:49:47,046 - INFO - 
+ASA Score 分布：
+2026-05-13 18:49:47,046 - INFO - 
+ASA Score
+3    333
+2    271
+1     36
+4      2
+Name: count, dtype: int64
+2026-05-13 18:49:47,046 - INFO - 
+转换前数据类型：
+2026-05-13 18:49:47,046 - INFO - 
+Age             int64
+BMI           float64
+Tumor Size    float64
+AJCC Stage     object
+Albumin        object
+ASA Score      object
+dtype: object
+2026-05-13 18:49:47,047 - INFO - 
+转换后数据类型：
+2026-05-13 18:49:47,047 - INFO - 
+Age                  int64
+BMI                float64
+Tumor Size         float64
+AJCC Stage          object
+Albumin              int64
+Survival Status      int64
+OS                   int64
+dtype: object

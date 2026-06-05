@@ -7,9 +7,8 @@ __pycache__/
 
 # others
 .idea/
-.vscode/
 .venv/
 
 # data
 *.xlsx
-*.log
+data/
