@@ -1,10 +1,9 @@
 import os
-import pandas as pd
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 import random
-import shap
+import plots
 
 from scipy import stats
 from scipy.stats import chi2_contingency, fisher_exact
@@ -12,18 +11,15 @@ from statsmodels.stats.contingency_tables import Table2x2
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.inspection import permutation_importance
 
 from lifelines import KaplanMeierFitter
 from lifelines.statistics import logrank_test
 
 from sksurv.util import Surv
 from sksurv.ensemble import RandomSurvivalForest
-from sksurv.metrics import cumulative_dynamic_auc
 
 from config import CATEGORICAL_VARS, CONTINUOUS_VARS
 from analysis import run_cox_analysis
-from utils import smd_categorical, smd_continuous, smd
 
 
 # =========================
@@ -96,26 +92,6 @@ def fit_ps_model(df_model):
 
 
 # =========================
-# 3. PS分布图
-# =========================
-def plot_ps_density(df_model, dataset_name, output_dir):
-
-    plt.figure()
-    sns.kdeplot(df_model[df_model["treat"] == 1]["ps"], label="MIS")
-    sns.kdeplot(df_model[df_model["treat"] == 0]["ps"], label="OPEN")
-
-    plt.title(f"{dataset_name} - PS density")
-    plt.legend()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_ps_density.png"),
-        dpi=300,
-        bbox_inches="tight",
-    )
-    plt.close()
-
-
-# =========================
 # 4. PSM matching（核心）
 # =========================
 def ps_matching(df_model, caliper_ratio=0.2):
@@ -172,112 +148,6 @@ def compute_table1(matched_df):
 
 
 # =========================
-# 6. SMD Love plot
-# =========================
-def plot_smd(X_before, matched_df, dataset_name, output_dir):
-
-    X_full = pd.concat([X_before, matched_df["treat"]], axis=1)
-
-    # before matching
-    continuous_smd_before = [smd(X_full, c) for c in CONTINUOUS_VARS]
-
-    # after matching
-    continuous_smd_after = [
-        smd(X_full.loc[matched_df.index], c) for c in CONTINUOUS_VARS
-    ]
-
-    plt.figure(figsize=(6, 4))
-
-    plt.scatter(continuous_smd_before, CONTINUOUS_VARS, label="Before Matching")
-
-    plt.scatter(continuous_smd_after, CONTINUOUS_VARS, label="After Matching")
-
-    plt.axvline(0.1, linestyle="--")
-
-    plt.xlabel("Standardized Mean Difference")
-
-    plt.title(f"{dataset_name} Love Plot")
-
-    plt.gca().invert_yaxis()
-
-    plt.legend()
-
-    plt.tight_layout()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_love_plot.png"),
-        dpi=300,
-        bbox_inches="tight",
-    )
-
-    plt.close()
-
-
-def plot_love_continuous(df_before, df_after, dataset_name, output_dir):
-
-    before_smd = []
-    after_smd = []
-
-    for var in CONTINUOUS_VARS:
-
-        before_smd.append(smd_continuous(df_before, var))
-
-        after_smd.append(smd_continuous(df_after, var))
-
-    plt.figure(figsize=(6, 4))
-
-    plt.scatter(before_smd, CONTINUOUS_VARS, label="Before", marker="o")
-    plt.scatter(after_smd, CONTINUOUS_VARS, label="After", marker="o")
-
-    plt.axvline(0.1, linestyle="--")
-
-    plt.xlabel("Standardized Mean Difference")
-    plt.title(f"{dataset_name} Love Plot - Continuous")
-
-    plt.gca().invert_yaxis()
-    plt.legend()
-    plt.tight_layout()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_love_continuous.png"), dpi=300
-    )
-
-    plt.close()
-
-
-def plot_love_categorical(df_before, df_after, dataset_name, output_dir):
-
-    before_smd = []
-    after_smd = []
-
-    for var in CATEGORICAL_VARS:
-
-        before_smd.append(smd_categorical(df_before, var))
-
-        after_smd.append(smd_categorical(df_after, var))
-
-    plt.figure(figsize=(6, 4))
-
-    plt.scatter(before_smd, CATEGORICAL_VARS, label="Before", marker="s")
-    plt.scatter(after_smd, CATEGORICAL_VARS, label="After", marker="s")
-
-    plt.axvline(0.1, linestyle="--")
-
-    plt.xlabel("Standardized Mean Difference")
-    plt.title(f"{dataset_name} Love Plot - Categorical")
-
-    plt.gca().invert_yaxis()
-    plt.legend()
-    plt.tight_layout()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_love_categorical.png"), dpi=300
-    )
-
-    plt.close()
-
-
-# =========================
 # 7. 单个dataset pipeline
 # =========================
 def run_single_dataset(file_path, output_dir):
@@ -294,7 +164,7 @@ def run_single_dataset(file_path, output_dir):
     df_model, X_encoded, scaler, logit = fit_ps_model(df_model)
 
     # plot ps
-    plot_ps_density(df_model, dataset_name, output_dir)
+    plots.plot_ps_density(df_model, dataset_name, output_dir)
 
     # matching
     matched_df = ps_matching(df_model)
@@ -303,8 +173,8 @@ def run_single_dataset(file_path, output_dir):
     df_before = df_model.copy()
     df_after = matched_df.copy()
 
-    plot_love_continuous(df_before, df_after, dataset_name, output_dir)
-    plot_love_categorical(df_before, df_after, dataset_name, output_dir)
+    plots.plot_love_continuous(df_before, df_after, dataset_name, output_dir)
+    plots.plot_love_categorical(df_before, df_after, dataset_name, output_dir)
 
     # table1
     table1 = compute_table1(matched_df)
@@ -320,16 +190,16 @@ def run_single_dataset(file_path, output_dir):
     cph, result_table = run_cox_analysis(matched_df, dataset_name, output_dir)
 
     # forest plot
-    plot_cox_forest(result_table, dataset_name, output_dir)
+    plots.plot_cox_forest(result_table, dataset_name, output_dir)
 
     # RSF
     rsf, ml_X, y_ml = run_rsf_analysis(matched_df, dataset_name, output_dir)
 
     # Time ROC
-    plot_time_auc(rsf, ml_X, y_ml, dataset_name, output_dir)
+    plots.plot_time_auc(rsf, ml_X, y_ml, dataset_name, output_dir)
 
     # Importance
-    plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir)
+    plots.plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir)
 
     run_two_year_os_analysis(matched_df, dataset_name, output_dir)
 
@@ -392,39 +262,6 @@ def run_km_analysis(
 
 
 # =========================
-# 10. Forest plot
-# =========================
-def plot_cox_forest(result_table, dataset_name, output_dir):
-
-    plt.figure(figsize=(6, 4))
-
-    y_pos = np.arange(len(result_table))
-
-    hr = result_table["HR"]
-    lower = result_table["HR_lower"]
-    upper = result_table["HR_upper"]
-
-    plt.errorbar(hr, y_pos, xerr=[hr - lower, upper - hr], fmt="o")
-
-    plt.yticks(y_pos, result_table.index)
-
-    plt.axvline(1, linestyle="--")
-
-    plt.xlabel("Hazard Ratio")
-    plt.title(f"{dataset_name} Cox Forest Plot")
-
-    plt.tight_layout()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_Cox_forest.png"),
-        dpi=300,
-        bbox_inches="tight",
-    )
-
-    plt.close()
-
-
-# =========================
 # 11. Random Survival Forest
 # =========================
 def run_rsf_analysis(
@@ -448,111 +285,6 @@ def run_rsf_analysis(
     print("RSF fitted.")
 
     return rsf, ml_X, y_ml
-
-
-def plot_time_auc(rsf, ml_X, y_ml, dataset_name, output_dir):
-
-    # =========================
-    # 1. 原始候选时间点
-    # =========================
-    raw_times = np.arange(12, 60, 12, dtype=float)
-
-    min_followup = np.min(y_ml["OS"])
-    max_followup = np.max(y_ml["OS"])
-
-    # =========================
-    # 2. 过滤
-    # =========================
-    times = raw_times[(raw_times >= min_followup) & (raw_times < max_followup)]
-
-    # =========================
-    # 3. 🔥 fallback（关键）
-    # =========================
-    if len(times) == 0:
-        print("⚠️ Warning: default times invalid, using quantiles instead")
-
-        times = np.quantile(y_ml["OS"], [0.25, 0.5, 0.75])
-
-        times = np.unique(times)
-
-        # 如果还是不行，再兜底
-        if len(times) == 0:
-            times = np.array([max_followup * 0.3, max_followup * 0.6])
-
-    # =========================
-    # 4. prediction
-    # =========================
-    risk_scores = rsf.predict(ml_X)
-
-    auc, mean_auc = cumulative_dynamic_auc(y_ml, y_ml, risk_scores, times)
-
-    # =========================
-    # 5. plot
-    # =========================
-    plt.figure()
-
-    plt.plot(times, auc, marker="o")
-
-    plt.xlabel("Time")
-    plt.ylabel("AUC")
-
-    plt.title(f"{dataset_name} Time-dependent ROC\nMean AUC={mean_auc:.3f}")
-
-    plt.tight_layout()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_TimeROC.png"),
-        dpi=300,
-        bbox_inches="tight",
-    )
-
-    plt.close()
-
-    print(f"Mean AUC = {mean_auc:.3f}")
-
-    return auc, mean_auc
-
-
-# =========================
-# 13. Feature importance
-# =========================
-def plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir):
-
-    perm = permutation_importance(
-        rsf, ml_X, y_ml, n_repeats=20, random_state=42, n_jobs=-1
-    )
-
-    importance_df = pd.DataFrame(
-        {"Feature": ml_X.columns, "Importance": perm.importances_mean}
-    )
-
-    importance_df = importance_df.sort_values("Importance", ascending=False)
-
-    plt.figure(figsize=(8, 5))
-
-    plt.barh(importance_df["Feature"], importance_df["Importance"])
-
-    plt.gca().invert_yaxis()
-
-    plt.xlabel("Permutation Importance")
-
-    plt.title(f"{dataset_name} RSF Importance")
-
-    plt.tight_layout()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_RSF_importance.png"),
-        dpi=300,
-        bbox_inches="tight",
-    )
-
-    plt.close()
-
-    importance_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_RSF_importance.xlsx"), index=False
-    )
-
-    return importance_df
 
 
 # ==========================================
@@ -699,14 +431,8 @@ def run_two_year_os_analysis(
 
     ci_low, ci_high = ct.oddsratio_confint()
 
-    # ==========================================
-    # 9. risk difference
-    # ==========================================
     risk_diff = mis_survival - open_survival
 
-    # ==========================================
-    # 10. results dataframe
-    # ==========================================
     summary_df = pd.DataFrame(
         {
             "Group": ["OPEN", "MIS"],
@@ -742,9 +468,6 @@ def run_two_year_os_analysis(
         }
     )
 
-    # ==========================================
-    # 11. save outputs
-    # ==========================================
     os.makedirs(output_dir, exist_ok=True)
 
     summary_df.to_excel(
