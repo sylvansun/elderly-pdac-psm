@@ -779,6 +779,12 @@ if __name__ == "__main__":
 
     set_seed(42)
 
-    files = ["complications.xlsx", "elderly.xlsx"]
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    DATA_DIR = os.path.join(BASE_DIR, "data")
+
+    files = [
+        os.path.join(DATA_DIR, "complications.xlsx"),
+        os.path.join(DATA_DIR, "elderly.xlsx"),
+    ]
 
     run_psm_batch(files)
