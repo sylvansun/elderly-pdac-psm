@@ -5,11 +5,14 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from utils import smd
-from config import CATEGORICAL_VARS, CONTINUOUS_VARS
+import config
 from utils import smd_categorical, smd_continuous, smd
 
 from sklearn.inspection import permutation_importance
 from sksurv.metrics import cumulative_dynamic_auc
+
+CATEGORICAL_VARS = config.categorical_vars()
+CONTINUOUS_VARS = config.continuous_vars()
 
 
 def plot_ps_density(df_model, dataset_name, output_dir):

@@ -18,46 +18,53 @@ from lifelines.statistics import logrank_test
 from sksurv.util import Surv
 from sksurv.ensemble import RandomSurvivalForest
 
-from config import CATEGORICAL_VARS, CONTINUOUS_VARS
 from analysis import run_cox_analysis
+from config import (
+    continuous_vars,
+    categorical_vars,
+    all_covariates,
+    TREATMENT_COL,
+    TREATMENT_MAPPING,
+    LOGISTIC_MAX_ITER,
+    RANDOM_SEED,
+    PSM_CALIPER_RATIO,
+    TIME_COL,
+    EVENT_COL,
+    RSF_PARAMS,
+)
 
 
-# =========================
-# 0. seed
-# =========================
 def set_seed(seed=42):
     random.seed(seed)
     np.random.seed(seed)
 
 
-# =========================
-# 1. 数据预处理
-# =========================
 def preprocess_data(df):
     df_model = df.copy().sort_index()
 
-    for col in CONTINUOUS_VARS:
+    for col in continuous_vars():
         df_model[col] = df_model[col].fillna(df_model[col].median())
 
-    for col in CATEGORICAL_VARS:
+    for col in categorical_vars():
         df_model[col] = df_model[col].fillna("Unknown")
 
-    df_model["treat"] = df_model["Surgical approach"].map({"OPEN": 0, "MIS": 1})
+    df_model["treat"] = df_model[TREATMENT_COL].map(TREATMENT_MAPPING)
 
     return df_model
 
 
-# =========================
-# 2. PS模型（升级版）
-# =========================
 def fit_ps_model(df_model):
 
     # =========================
     # 1. 构造设计矩阵
     # =========================
-    X_raw = df_model[CONTINUOUS_VARS + CATEGORICAL_VARS].copy()
+    X_raw = df_model[all_covariates()].copy()
 
-    X_encoded = pd.get_dummies(X_raw, columns=CATEGORICAL_VARS, drop_first=True)
+    X_encoded = pd.get_dummies(
+        X_raw,
+        columns=categorical_vars(),
+        drop_first=True,
+    )
 
     y = df_model["treat"]
 
@@ -70,7 +77,10 @@ def fit_ps_model(df_model):
     # =========================
     # 3. PS model
     # =========================
-    logit = LogisticRegression(max_iter=2000, random_state=42)
+    logit = LogisticRegression(
+        max_iter=LOGISTIC_MAX_ITER,
+        random_state=RANDOM_SEED,
+    )
 
     logit.fit(X_scaled, y)
 
@@ -85,15 +95,9 @@ def fit_ps_model(df_model):
     df_model["ps"] = ps
     df_model["logit_ps"] = np.log(ps / (1 - ps))
 
-    # =========================
-    # 5. 返回内容（关键改动）
-    # =========================
     return df_model, X_encoded, scaler, logit
 
 
-# =========================
-# 4. PSM matching（核心）
-# =========================
 def ps_matching(df_model, caliper_ratio=0.2):
 
     treated = df_model[df_model["treat"] == 1]
@@ -126,14 +130,11 @@ def ps_matching(df_model, caliper_ratio=0.2):
     return matched_df
 
 
-# =========================
-# 5. Table 1（基线比较）
-# =========================
 def compute_table1(matched_df):
 
     rows = []
 
-    for var in CONTINUOUS_VARS:
+    for var in continuous_vars():
 
         t = matched_df[matched_df["treat"] == 1][var]
         c = matched_df[matched_df["treat"] == 0][var]
@@ -147,9 +148,6 @@ def compute_table1(matched_df):
     return pd.DataFrame(rows, columns=["Variable", "MIS", "OPEN", "p"])
 
 
-# =========================
-# 7. 单个dataset pipeline
-# =========================
 def run_single_dataset(file_path, output_dir):
 
     dataset_name = os.path.splitext(os.path.basename(file_path))[0]
@@ -167,7 +165,10 @@ def run_single_dataset(file_path, output_dir):
     plots.plot_ps_density(df_model, dataset_name, output_dir)
 
     # matching
-    matched_df = ps_matching(df_model)
+    matched_df = ps_matching(
+        df_model,
+        caliper_ratio=PSM_CALIPER_RATIO,
+    )
 
     # love plot
     df_before = df_model.copy()
@@ -184,7 +185,13 @@ def run_single_dataset(file_path, output_dir):
     )
 
     # KM
-    run_km_analysis(matched_df, dataset_name, output_dir)
+    run_km_analysis(
+        matched_df,
+        dataset_name,
+        output_dir,
+        time_col=TIME_COL,
+        event_col=EVENT_COL,
+    )
 
     # Cox
     cph, result_table = run_cox_analysis(matched_df, dataset_name, output_dir)
@@ -268,15 +275,13 @@ def run_rsf_analysis(
     matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
 ):
 
-    ml_X = matched_df[CONTINUOUS_VARS]
+    ml_X = matched_df[continuous_vars()]
 
     y_ml = Surv.from_dataframe(event_col, time_col, matched_df)
 
     rsf = RandomSurvivalForest(
-        n_estimators=500,
-        min_samples_split=10,
-        min_samples_leaf=15,
-        random_state=42,
+        **RSF_PARAMS,
+        random_state=RANDOM_SEED,
         n_jobs=-1,
     )
 
@@ -300,46 +305,12 @@ def run_two_year_os_analysis(
     landmark_days=730,  # 2 years
 ):
 
-    # ==========================================
-    # 0. copy dataframe
-    # ==========================================
     df = matched_df.copy()
-
-    # ==========================================
-    # 1. basic cleaning
-    # ==========================================
     df = df[[time_col, event_col, "treat"]].copy()
-
-    # remove missing
     df = df.dropna(subset=[time_col, event_col, "treat"])
-
-    # force numeric
     df[time_col] = pd.to_numeric(df[time_col], errors="coerce")
     df[event_col] = pd.to_numeric(df[event_col], errors="coerce")
-
-    # drop invalid
     df = df.dropna(subset=[time_col, event_col])
-
-    # ==========================================
-    # event definition
-    #
-    # ASSUMED:
-    # 1 = death
-    # 0 = censored/alive
-    # ==========================================
-
-    # ==========================================
-    # 3. define 2-year OS status
-    # ==========================================
-    #
-    # Alive at 2yr:
-    #   - survived >=730 days
-    #   - censored before 730 days
-    #
-    # Dead before 2yr:
-    #   - died before 730 days
-    #
-    # ==========================================
 
     df["OS_2yr"] = np.where(
         (
@@ -350,9 +321,6 @@ def run_two_year_os_analysis(
         0,  # dead
     )
 
-    # ==========================================
-    # 4. contingency table
-    # ==========================================
     table = pd.crosstab(df["treat"], df["OS_2yr"])
 
     # ensure both columns exist
@@ -377,18 +345,6 @@ def run_two_year_os_analysis(
 
     mis_survival = table.loc["MIS", "Alive≥2yr"] / table.loc["MIS"].sum()
 
-    # ==========================================
-    # 6. choose statistical test
-    # ==========================================
-    #
-    # Fisher:
-    #   if any expected cell <5
-    #
-    # Chi-square:
-    #   otherwise
-    #
-    # ==========================================
-
     chi2, p_chi, dof, expected = chi2_contingency(table)
 
     if (expected < 5).any():
@@ -396,9 +352,6 @@ def run_two_year_os_analysis(
     else:
         use_fisher = False
 
-    # ==========================================
-    # 7. perform test
-    # ==========================================
     if use_fisher:
 
         _, p = fisher_exact(table.values)
@@ -410,15 +363,6 @@ def run_two_year_os_analysis(
         p = p_chi
 
         test_used = "Chi-square test"
-
-    # ==========================================
-    # 8. odds ratio
-    # ==========================================
-    #
-    # add 0.5 continuity correction
-    # if zero cell exists
-    #
-    # ==========================================
 
     table_for_or = table.values.astype(float)
 
@@ -485,9 +429,6 @@ def run_two_year_os_analysis(
     return summary_df, stats_df, table
 
 
-# =========================
-# batch入口
-# =========================
 def run_psm_batch(file_list, output_dir="PSM_results"):
 
     os.makedirs(output_dir, exist_ok=True)
@@ -500,14 +441,18 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
 
 if __name__ == "__main__":
 
-    set_seed(42)
+    set_seed(RANDOM_SEED)
 
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
     DATA_DIR = os.path.join(BASE_DIR, "data")
 
     files = [
-        os.path.join(DATA_DIR, "complications.xlsx"),
-        os.path.join(DATA_DIR, "elderly.xlsx"),
+        os.path.join(DATA_DIR, f)
+        for f in [
+            "complications.xlsx",
+            "elderly.xlsx",
+        ]
     ]
 
     run_psm_batch(files)

@@ -2,7 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from config import CONTINUOUS_VARS
+from config import continuous_vars
 
 from lifelines import CoxPHFitter
 
@@ -24,7 +24,7 @@ def run_cox_analysis(
 
     chemo_var = "Postoperative Chemotherapy Regimen"
 
-    cox_vars = ["treat"] + CONTINUOUS_VARS + [chemo_var]
+    cox_vars = ["treat"] + continuous_vars() + [chemo_var]
 
     # ==========================================
     # 2. build dataframe
