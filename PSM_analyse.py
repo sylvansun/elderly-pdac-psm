@@ -19,19 +19,7 @@ from sksurv.util import Surv
 from sksurv.ensemble import RandomSurvivalForest
 
 from analysis import run_cox_analysis
-from config import (
-    continuous_vars,
-    categorical_vars,
-    all_covariates,
-    TREATMENT_COL,
-    TREATMENT_MAPPING,
-    LOGISTIC_MAX_ITER,
-    RANDOM_SEED,
-    PSM_CALIPER_RATIO,
-    TIME_COL,
-    EVENT_COL,
-    RSF_PARAMS,
-)
+import config as cfg
 
 
 def set_seed(seed=42):
@@ -42,13 +30,13 @@ def set_seed(seed=42):
 def preprocess_data(df):
     df_model = df.copy().sort_index()
 
-    for col in continuous_vars():
+    for col in cfg.continuous_vars():
         df_model[col] = df_model[col].fillna(df_model[col].median())
 
-    for col in categorical_vars():
+    for col in cfg.categorical_vars():
         df_model[col] = df_model[col].fillna("Unknown")
 
-    df_model["treat"] = df_model[TREATMENT_COL].map(TREATMENT_MAPPING)
+    df_model["treat"] = df_model[cfg.TREATMENT_COL].map(cfg.TREATMENT_MAPPING)
 
     return df_model
 
@@ -58,11 +46,11 @@ def fit_ps_model(df_model):
     # =========================
     # 1. 构造设计矩阵
     # =========================
-    X_raw = df_model[all_covariates()].copy()
+    X_raw = df_model[cfg.all_covariates()].copy()
 
     X_encoded = pd.get_dummies(
         X_raw,
-        columns=categorical_vars(),
+        columns=cfg.categorical_vars(),
         drop_first=True,
     )
 
@@ -78,8 +66,8 @@ def fit_ps_model(df_model):
     # 3. PS model
     # =========================
     logit = LogisticRegression(
-        max_iter=LOGISTIC_MAX_ITER,
-        random_state=RANDOM_SEED,
+        max_iter=cfg.LOGISTIC_MAX_ITER,
+        random_state=cfg.RANDOM_SEED,
     )
 
     logit.fit(X_scaled, y)
@@ -134,7 +122,7 @@ def compute_table1(matched_df):
 
     rows = []
 
-    for var in continuous_vars():
+    for var in cfg.continuous_vars():
 
         t = matched_df[matched_df["treat"] == 1][var]
         c = matched_df[matched_df["treat"] == 0][var]
@@ -167,7 +155,7 @@ def run_single_dataset(file_path, output_dir):
     # matching
     matched_df = ps_matching(
         df_model,
-        caliper_ratio=PSM_CALIPER_RATIO,
+        caliper_ratio=cfg.PSM_CALIPER_RATIO,
     )
 
     # love plot
@@ -189,8 +177,8 @@ def run_single_dataset(file_path, output_dir):
         matched_df,
         dataset_name,
         output_dir,
-        time_col=TIME_COL,
-        event_col=EVENT_COL,
+        time_col=cfg.TIME_COL,
+        event_col=cfg.EVENT_COL,
     )
 
     # Cox
@@ -275,13 +263,13 @@ def run_rsf_analysis(
     matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
 ):
 
-    ml_X = matched_df[continuous_vars()]
+    ml_X = matched_df[cfg.continuous_vars()]
 
     y_ml = Surv.from_dataframe(event_col, time_col, matched_df)
 
     rsf = RandomSurvivalForest(
-        **RSF_PARAMS,
-        random_state=RANDOM_SEED,
+        **cfg.RSF_PARAMS,
+        random_state=cfg.RANDOM_SEED,
         n_jobs=-1,
     )
 
@@ -441,7 +429,7 @@ def run_psm_batch(file_list, output_dir="PSM_results"):
 
 if __name__ == "__main__":
 
-    set_seed(RANDOM_SEED)
+    set_seed(cfg.RANDOM_SEED)
 
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
