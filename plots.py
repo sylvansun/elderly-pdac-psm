@@ -229,9 +229,6 @@ def plot_time_auc(rsf, ml_X, y_ml, dataset_name, output_dir):
     return auc, mean_auc
 
 
-# =========================
-# 13. Feature importance
-# =========================
 def plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir):
 
     perm = permutation_importance(

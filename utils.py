@@ -2,7 +2,6 @@ import pandas as pd
 import numpy as np
 
 
-# SMD函数
 def smd(df, col):
     t = df[df["treat"] == 1][col]
     c = df[df["treat"] == 0][col]

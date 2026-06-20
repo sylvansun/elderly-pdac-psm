@@ -205,9 +205,6 @@ def run_single_dataset(file_path, output_dir):
     return df_model, matched_df
 
 
-# =========================
-# 8. Kaplan-Meier analysis
-# =========================
 def run_km_analysis(
     matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
 ):
@@ -256,9 +253,6 @@ def run_km_analysis(
     return p_value
 
 
-# =========================
-# 11. Random Survival Forest
-# =========================
 def run_rsf_analysis(
     matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
 ):
@@ -280,10 +274,6 @@ def run_rsf_analysis(
     return rsf, ml_X, y_ml
 
 
-# ==========================================
-# 2-Year Overall Survival Analysis
-# OS time unit = DAYS
-# ==========================================
 def run_two_year_os_analysis(
     matched_df,
     dataset_name,
@@ -326,9 +316,6 @@ def run_two_year_os_analysis(
     print("2-year OS contingency table:")
     print(table)
 
-    # ==========================================
-    # 5. survival rates
-    # ==========================================
     open_survival = table.loc["OPEN", "Alive≥2yr"] / table.loc["OPEN"].sum()
 
     mis_survival = table.loc["MIS", "Alive≥2yr"] / table.loc["MIS"].sum()
