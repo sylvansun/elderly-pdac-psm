@@ -1,24 +1,14 @@
 import os
+import random
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import random
-import plots
 
 from scipy import stats
-from scipy.stats import chi2_contingency, fisher_exact
-from statsmodels.stats.contingency_tables import Table2x2
-
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-from lifelines import KaplanMeierFitter
-from lifelines.statistics import logrank_test
-
-from sksurv.util import Surv
-from sksurv.ensemble import RandomSurvivalForest
-
-from analysis import run_cox_analysis
+import analysis
+import plots
 import config as cfg
 
 
@@ -172,8 +162,7 @@ def run_single_dataset(file_path, output_dir):
         os.path.join(output_dir, f"{dataset_name}_Table1.xlsx"), index=False
     )
 
-    # KM
-    run_km_analysis(
+    analysis.run_km_analysis(
         matched_df,
         dataset_name,
         output_dir,
@@ -181,227 +170,23 @@ def run_single_dataset(file_path, output_dir):
         event_col=cfg.EVENT_COL,
     )
 
-    # Cox
-    cph, result_table = run_cox_analysis(matched_df, dataset_name, output_dir)
+    cph, result_table = analysis.run_cox_analysis(matched_df, dataset_name, output_dir)
 
-    # forest plot
     plots.plot_cox_forest(result_table, dataset_name, output_dir)
 
-    # RSF
-    rsf, ml_X, y_ml = run_rsf_analysis(matched_df, dataset_name, output_dir)
+    rsf, ml_X, y_ml = analysis.run_rsf_analysis(matched_df, dataset_name, output_dir)
 
-    # Time ROC
     plots.plot_time_auc(rsf, ml_X, y_ml, dataset_name, output_dir)
 
-    # Importance
     plots.plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir)
 
-    run_two_year_os_analysis(matched_df, dataset_name, output_dir)
+    analysis.run_two_year_os_analysis(matched_df, dataset_name, output_dir)
 
     matched_df.to_excel(
         os.path.join(output_dir, f"{dataset_name}_PSM_dataset.xlsx"), index=False
     )
 
     return df_model, matched_df
-
-
-def run_km_analysis(
-    matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
-):
-
-    g0 = matched_df[matched_df["treat"] == 0]
-    g1 = matched_df[matched_df["treat"] == 1]
-
-    kmf = KaplanMeierFitter()
-
-    plt.figure(figsize=(6, 6))
-
-    for g, label in zip([g0, g1], ["OPEN", "MIS"]):
-
-        kmf.fit(durations=g[time_col], event_observed=g[event_col], label=label)
-
-        kmf.plot_survival_function(ci_show=True)
-
-    # log-rank
-    res = logrank_test(
-        g0[time_col],
-        g1[time_col],
-        event_observed_A=g0[event_col],
-        event_observed_B=g1[event_col],
-    )
-
-    p_value = res.p_value
-
-    plt.title(f"{dataset_name} Kaplan-Meier Curve")
-    plt.xlabel("Time")
-    plt.ylabel("Survival Probability")
-
-    plt.text(0.6, 0.1, f"log-rank p = {p_value:.4f}", transform=plt.gca().transAxes)
-
-    plt.tight_layout()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_KM_curve.png"),
-        dpi=300,
-        bbox_inches="tight",
-    )
-
-    plt.close()
-
-    print(f"KM analysis finished: p={p_value:.4f}")
-
-    return p_value
-
-
-def run_rsf_analysis(
-    matched_df, dataset_name, output_dir, time_col="OS", event_col="Survival Status"
-):
-
-    ml_X = matched_df[cfg.continuous_vars()]
-
-    y_ml = Surv.from_dataframe(event_col, time_col, matched_df)
-
-    rsf = RandomSurvivalForest(
-        **cfg.RSF_PARAMS,
-        random_state=cfg.RANDOM_SEED,
-        n_jobs=-1,
-    )
-
-    rsf.fit(ml_X, y_ml)
-
-    print("RSF fitted.")
-
-    return rsf, ml_X, y_ml
-
-
-def run_two_year_os_analysis(
-    matched_df,
-    dataset_name,
-    output_dir,
-    time_col="OS",
-    event_col="Survival Status",
-    landmark_days=730,  # 2 years
-):
-
-    df = matched_df.copy()
-    df = df[[time_col, event_col, "treat"]].copy()
-    df = df.dropna(subset=[time_col, event_col, "treat"])
-    df[time_col] = pd.to_numeric(df[time_col], errors="coerce")
-    df[event_col] = pd.to_numeric(df[event_col], errors="coerce")
-    df = df.dropna(subset=[time_col, event_col])
-
-    df["OS_2yr"] = np.where(
-        (
-            (df[time_col] >= landmark_days)
-            | ((df[time_col] < landmark_days) & (df[event_col] == 0))
-        ),
-        1,  # alive
-        0,  # dead
-    )
-
-    table = pd.crosstab(df["treat"], df["OS_2yr"])
-
-    # ensure both columns exist
-    for col in [0, 1]:
-        if col not in table.columns:
-            table[col] = 0
-
-    # reorder columns
-    table = table[[0, 1]]
-
-    # rename
-    table.index = ["OPEN", "MIS"]
-    table.columns = ["Death<2yr", "Alive≥2yr"]
-
-    print("2-year OS contingency table:")
-    print(table)
-
-    open_survival = table.loc["OPEN", "Alive≥2yr"] / table.loc["OPEN"].sum()
-
-    mis_survival = table.loc["MIS", "Alive≥2yr"] / table.loc["MIS"].sum()
-
-    chi2, p_chi, dof, expected = chi2_contingency(table)
-
-    if (expected < 5).any():
-        use_fisher = True
-    else:
-        use_fisher = False
-
-    if use_fisher:
-
-        _, p = fisher_exact(table.values)
-
-        test_used = "Fisher exact test"
-
-    else:
-
-        p = p_chi
-
-        test_used = "Chi-square test"
-
-    table_for_or = table.values.astype(float)
-
-    if (table_for_or == 0).any():
-        table_for_or += 0.5
-
-    ct = Table2x2(table_for_or)
-
-    or_val = ct.oddsratio
-
-    ci_low, ci_high = ct.oddsratio_confint()
-
-    risk_diff = mis_survival - open_survival
-
-    summary_df = pd.DataFrame(
-        {
-            "Group": ["OPEN", "MIS"],
-            "2yr_survival_rate": [
-                open_survival,
-                mis_survival,
-            ],
-            "2yr_survival_percent": [
-                round(open_survival * 100, 2),
-                round(mis_survival * 100, 2),
-            ],
-        }
-    )
-
-    stats_df = pd.DataFrame(
-        {
-            "Metric": [
-                "Statistical test",
-                "P value",
-                "Odds Ratio",
-                "OR 95% CI low",
-                "OR 95% CI high",
-                "Absolute Risk Difference (MIS-OPEN)",
-            ],
-            "Value": [
-                test_used,
-                p,
-                or_val,
-                ci_low,
-                ci_high,
-                risk_diff,
-            ],
-        }
-    )
-
-    os.makedirs(output_dir, exist_ok=True)
-
-    summary_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_2yr_OS_rates.xlsx"),
-        index=False,
-    )
-
-    stats_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_2yr_OS_stats.xlsx"),
-        index=False,
-    )
-
-    table.to_excel(os.path.join(output_dir, f"{dataset_name}_2yr_OS_table.xlsx"))
-
-    return summary_df, stats_df, table
 
 
 def run_psm_batch(file_list, output_dir="PSM_results"):
