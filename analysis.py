@@ -82,10 +82,6 @@ def run_cox_analysis(
 
         cox_df = cox_df.drop(columns=constant_cols)
 
-    # ==========================================
-    # 7. fit Cox model
-    # ==========================================
-
     cph = CoxPHFitter()
 
     cph.fit(
@@ -93,10 +89,6 @@ def run_cox_analysis(
         duration_col=time_col,
         event_col=event_col,
     )
-
-    # ==========================================
-    # 8. summary table
-    # ==========================================
 
     summary = cph.summary.copy()
 
@@ -117,15 +109,10 @@ def run_cox_analysis(
 
     result_table = result_table.round(4)
 
-    # ==========================================
-    # 9. save outputs
-    # ==========================================
+    dataset_dir = os.path.join(output_dir, dataset_name)
+    result_table.to_excel(os.path.join(dataset_dir, "Cox_results.xlsx"))
 
-    os.makedirs(output_dir, exist_ok=True)
-
-    result_table.to_excel(os.path.join(output_dir, f"{dataset_name}_Cox_results.xlsx"))
-
-    summary.to_excel(os.path.join(output_dir, f"{dataset_name}_Cox_full_summary.xlsx"))
+    summary.to_excel(os.path.join(dataset_dir, "Cox_full_summary.xlsx"))
 
     # ==========================================
     # 10. PH assumption check
@@ -135,12 +122,8 @@ def run_cox_analysis(
         cox_df, p_value_threshold=0.05, show_plots=False
     )
 
-    # ==========================================
-    # 11. save model dataframe
-    # ==========================================
-
     cox_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_Cox_input_dataframe.xlsx"),
+        os.path.join(dataset_dir, "Cox_input_dataframe.xlsx"),
         index=False,
     )
 
@@ -177,17 +160,14 @@ def run_km_analysis(
     plt.title(f"{dataset_name} Kaplan-Meier Curve")
     plt.xlabel("Time")
     plt.ylabel("Survival Probability")
-
     plt.text(0.6, 0.1, f"log-rank p = {p_value:.4f}", transform=plt.gca().transAxes)
-
     plt.tight_layout()
-
+    dataset_dir = os.path.join(output_dir, dataset_name)
     plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_KM_curve.png"),
+        os.path.join(dataset_dir, "KM_curve.png"),
         dpi=300,
         bbox_inches="tight",
     )
-
     plt.close()
 
     print(f"KM analysis finished: p={p_value:.4f}")
@@ -329,18 +309,18 @@ def run_two_year_os_analysis(
         }
     )
 
-    os.makedirs(output_dir, exist_ok=True)
+    dataset_dir = os.path.join(output_dir, dataset_name)
 
     summary_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_2yr_OS_rates.xlsx"),
+        os.path.join(dataset_dir, "2yr_OS_rates.xlsx"),
         index=False,
     )
 
     stats_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_2yr_OS_stats.xlsx"),
+        os.path.join(dataset_dir, "2yr_OS_stats.xlsx"),
         index=False,
     )
 
-    table.to_excel(os.path.join(output_dir, f"{dataset_name}_2yr_OS_table.xlsx"))
+    table.to_excel(os.path.join(dataset_dir, "2yr_OS_table.xlsx"))
 
     return summary_df, stats_df, table

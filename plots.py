@@ -23,9 +23,9 @@ def plot_ps_density(df_model, dataset_name, output_dir):
 
     plt.title(f"{dataset_name} - PS density")
     plt.legend()
-
+    dataset_dir = os.path.join(output_dir, dataset_name)
     plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_ps_density.png"),
+        os.path.join(dataset_dir, "ps_density.png"),
         dpi=300,
         bbox_inches="tight",
     )
@@ -46,29 +46,20 @@ def plot_smd(X_before, matched_df, dataset_name, output_dir):
     ]
 
     plt.figure(figsize=(6, 4))
-
     plt.scatter(continuous_smd_before, CONTINUOUS_VARS, label="Before Matching")
-
     plt.scatter(continuous_smd_after, CONTINUOUS_VARS, label="After Matching")
-
     plt.axvline(0.1, linestyle="--")
-
     plt.xlabel("Standardized Mean Difference")
-
     plt.title(f"{dataset_name} Love Plot")
-
     plt.gca().invert_yaxis()
-
     plt.legend()
-
     plt.tight_layout()
-
+    dataset_dir = os.path.join(output_dir, dataset_name)
     plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_love_plot.png"),
+        os.path.join(dataset_dir, "love_plot.png"),
         dpi=300,
         bbox_inches="tight",
     )
-
     plt.close()
 
 
@@ -84,23 +75,16 @@ def plot_love_continuous(df_before, df_after, dataset_name, output_dir):
         after_smd.append(smd_continuous(df_after, var))
 
     plt.figure(figsize=(6, 4))
-
     plt.scatter(before_smd, CONTINUOUS_VARS, label="Before", marker="o")
     plt.scatter(after_smd, CONTINUOUS_VARS, label="After", marker="o")
-
     plt.axvline(0.1, linestyle="--")
-
     plt.xlabel("Standardized Mean Difference")
     plt.title(f"{dataset_name} Love Plot - Continuous")
-
     plt.gca().invert_yaxis()
     plt.legend()
     plt.tight_layout()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_love_continuous.png"), dpi=300
-    )
-
+    dataset_dir = os.path.join(output_dir, dataset_name)
+    plt.savefig(os.path.join(dataset_dir, "love_continuous.png"), dpi=300)
     plt.close()
 
 
@@ -116,23 +100,16 @@ def plot_love_categorical(df_before, df_after, dataset_name, output_dir):
         after_smd.append(smd_categorical(df_after, var))
 
     plt.figure(figsize=(6, 4))
-
     plt.scatter(before_smd, CATEGORICAL_VARS, label="Before", marker="s")
     plt.scatter(after_smd, CATEGORICAL_VARS, label="After", marker="s")
-
     plt.axvline(0.1, linestyle="--")
-
     plt.xlabel("Standardized Mean Difference")
     plt.title(f"{dataset_name} Love Plot - Categorical")
-
     plt.gca().invert_yaxis()
     plt.legend()
     plt.tight_layout()
-
-    plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_love_categorical.png"), dpi=300
-    )
-
+    dataset_dir = os.path.join(output_dir, dataset_name)
+    plt.savefig(os.path.join(dataset_dir, "love_categorical.png"), dpi=300)
     plt.close()
 
 
@@ -147,22 +124,17 @@ def plot_cox_forest(result_table, dataset_name, output_dir):
     upper = result_table["HR_upper"]
 
     plt.errorbar(hr, y_pos, xerr=[hr - lower, upper - hr], fmt="o")
-
     plt.yticks(y_pos, result_table.index)
-
     plt.axvline(1, linestyle="--")
-
     plt.xlabel("Hazard Ratio")
     plt.title(f"{dataset_name} Cox Forest Plot")
-
     plt.tight_layout()
-
+    dataset_dir = os.path.join(output_dir, dataset_name)
     plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_Cox_forest.png"),
+        os.path.join(dataset_dir, "Cox_forest.png"),
         dpi=300,
         bbox_inches="tight",
     )
-
     plt.close()
 
 
@@ -202,26 +174,18 @@ def plot_time_auc(rsf, ml_X, y_ml, dataset_name, output_dir):
 
     auc, mean_auc = cumulative_dynamic_auc(y_ml, y_ml, risk_scores, times)
 
-    # =========================
-    # 5. plot
-    # =========================
     plt.figure()
-
     plt.plot(times, auc, marker="o")
-
     plt.xlabel("Time")
     plt.ylabel("AUC")
-
     plt.title(f"{dataset_name} Time-dependent ROC\nMean AUC={mean_auc:.3f}")
-
     plt.tight_layout()
-
+    dataset_dir = os.path.join(output_dir, dataset_name)
     plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_TimeROC.png"),
+        os.path.join(dataset_dir, "TimeROC.png"),
         dpi=300,
         bbox_inches="tight",
     )
-
     plt.close()
 
     print(f"Mean AUC = {mean_auc:.3f}")
@@ -242,27 +206,21 @@ def plot_feature_importance(rsf, ml_X, y_ml, dataset_name, output_dir):
     importance_df = importance_df.sort_values("Importance", ascending=False)
 
     plt.figure(figsize=(8, 5))
-
     plt.barh(importance_df["Feature"], importance_df["Importance"])
-
     plt.gca().invert_yaxis()
-
     plt.xlabel("Permutation Importance")
-
     plt.title(f"{dataset_name} RSF Importance")
-
     plt.tight_layout()
-
+    dataset_dir = os.path.join(output_dir, dataset_name)
     plt.savefig(
-        os.path.join(output_dir, f"{dataset_name}_RSF_importance.png"),
+        os.path.join(dataset_dir, "RSF_importance.png"),
         dpi=300,
         bbox_inches="tight",
     )
-
     plt.close()
 
     importance_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_RSF_importance.xlsx"), index=False
+        os.path.join(dataset_dir, "RSF_importance.xlsx"), index=False
     )
 
     return importance_df

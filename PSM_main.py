@@ -130,6 +130,8 @@ def run_single_dataset(file_path, output_dir):
 
     dataset_name = os.path.splitext(os.path.basename(file_path))[0]
     print(f"\nProcessing: {dataset_name}")
+    dataset_dir = os.path.join(output_dir, dataset_name)
+    os.makedirs(dataset_dir, exist_ok=True)
 
     df = pd.read_excel(file_path)
 
@@ -158,9 +160,7 @@ def run_single_dataset(file_path, output_dir):
     # table1
     table1 = compute_table1(matched_df)
 
-    table1.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_Table1.xlsx"), index=False
-    )
+    table1.to_excel(os.path.join(dataset_dir, "Table1.xlsx"), index=False)
 
     analysis.run_km_analysis(
         matched_df,
@@ -182,9 +182,7 @@ def run_single_dataset(file_path, output_dir):
 
     analysis.run_two_year_os_analysis(matched_df, dataset_name, output_dir)
 
-    matched_df.to_excel(
-        os.path.join(output_dir, f"{dataset_name}_PSM_dataset.xlsx"), index=False
-    )
+    matched_df.to_excel(os.path.join(dataset_dir, "PSM_dataset.xlsx"), index=False)
 
     return df_model, matched_df
 
